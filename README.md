@@ -154,3 +154,4 @@ flutter run            # For mobile (with emulator/device connected)
 - **LangChain** for AI pipeline framework
 - **Flutter** for cross-platform UI
 - **FastAPI** for backend framework
+# chat-app1
