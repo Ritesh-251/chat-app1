@@ -31,6 +31,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = true);
     try {
       final result = await AuthService.instance.signUp(
+        _name.text.trim(),
+        _enrollment.text.trim(),
+        _batch.text.trim(),
+        _course.text.trim(),
+        _country.text.trim(),
         _email.text.trim(),
         _password.text.trim(),
       );
@@ -72,9 +77,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               children: [
                 LabeledField(
-                  label: 'Name',
+                  label: 'Name (Optional)',
                   controller: _name,
-                  validator: (v) => v!.isNotEmpty ? null : 'Enter your name',
+                  validator: null, // Name is optional
                 ),
                 const SizedBox(height: 16),
                 LabeledField(
@@ -97,9 +102,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
                 LabeledField(
-                  label: 'Country',
+                  label: 'Country (Optional)',
                   controller: _country,
-                  validator: (v) => v!.isNotEmpty ? null : 'Enter your country',
+                  validator: null, // Country is optional
                 ),
                 const SizedBox(height: 16),
                 LabeledField(
@@ -115,7 +120,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _password,
                   obscure: true,
                   validator: (v) =>
-                      v!.length >= 6 ? null : 'Min 6 characters',
+                      v!.length >= 10 ? null : 'Min 10 characters required',
                 ),
                 const SizedBox(height: 24),
                 PrimaryButton(

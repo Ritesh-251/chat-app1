@@ -41,13 +41,36 @@ class AuthService {
     }
   }
 
-  Future<Map<String, dynamic>> signUp(String email, String password) async {
+  Future<Map<String, dynamic>> signUp(
+    String name,
+    String enrollmentNumber,
+    String batch,
+    String course,
+    String country,
+    String email,
+    String password
+  ) async {
     try {
-      final response = await _apiService.register(email, password);
+      final response = await _apiService.register(
+        name,
+        email,
+        password,
+        enrollmentNumber,
+        batch,
+        course,
+        country,
+      );
       
       if (response['ok'] == true) {
-        // After successful registration, automatically login
-        return await signIn(email, password);
+        if (response['token'] != null) {
+          // Registration returned token directly
+          _currentUser = User(email: email, token: response['token']);
+          _authStateController.add(_currentUser);
+          return {'success': true, 'user': _currentUser};
+        } else {
+          // No token, try to login
+          return await signIn(email, password);
+        }
       } else {
         return {
           'success': false,
