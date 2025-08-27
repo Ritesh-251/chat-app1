@@ -3,6 +3,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/ws": "^8.18.1",
+    "@types/xlsx": "^0.0.36",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
@@ -11,8 +12,10 @@
     "mongoose": "^8.17.2",
     "openai": "^5.13.1",
     "typescript": "^5.9.2",
+    "uuid": "^11.1.0",
     "ws": "^8.18.3",
-    "zod": "^4.0.17"
+    "xlsx": "^0.18.5",
+    "zod": "^3.25.76"
   },
   "name": "backend",
   "version": "1.0.0",

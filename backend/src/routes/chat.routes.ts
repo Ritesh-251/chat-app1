@@ -6,10 +6,9 @@ import {
     getMostRecentChat,
     addMessage,
     sendMessageWithAI,
-    updateChat,
     deleteChat,
     deleteMessage,
-    checkDeletionEligibility,
+ 
     setActiveChat,
     autoArchiveOldChats,
     archiveChat,
@@ -92,14 +91,6 @@ router.delete("/:chatId/message/:messageId", jwtVerification, deleteMessage);
 // CHAT MANAGEMENT ROUTES
 // ==========================================
 
-/**
- * @route   PUT /api/chat/:chatId
- * @desc    Update chat title and/or subject
- * @access  Private (requires authentication)
- * @params  chatId: string (MongoDB ObjectId)
- * @body    { title?: string, subject?: string }
- */
-router.put("/:chatId", jwtVerification, updateChat);
 
 /**
  * @route   POST /api/chat/:chatId/active
@@ -121,21 +112,7 @@ router.post("/:chatId/active", jwtVerification, setActiveChat);
  */
 router.delete("/:chatId", jwtVerification, deleteChat);
 
-/**
- * @route   GET /api/chat/:chatId/deletion-status
- * @desc    Check if chat can be deleted (within 15-minute window)
- * @access  Private (requires authentication)
- * @params  chatId: string (MongoDB ObjectId)
- */
-router.get("/:chatId/deletion-status", jwtVerification, checkDeletionEligibility);
 
-/**
- * @route   GET /api/chat/:chatId/message/:messageId/deletion-status
- * @desc    Check if specific message can be deleted (within 15-minute window)
- * @access  Private (requires authentication)
- * @params  chatId: string, messageId: string
- */
-router.get("/:chatId/message/:messageId/deletion-status", jwtVerification, checkDeletionEligibility);
 
 // ==========================================
 // ARCHIVE MANAGEMENT ROUTES

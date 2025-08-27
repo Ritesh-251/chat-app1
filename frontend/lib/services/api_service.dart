@@ -6,8 +6,8 @@ class ApiService {
   static final instance = ApiService._();
 
   // Update this to your backend URL
-  // Use localhost for web/Chrome, 10.0.2.2 for Android emulator
-  static const String baseUrl = 'http://10.0.2.2:8000';
+  // Campus testing: Use hostname (works on any network)
+  static const String baseUrl = 'http://riteshs-macbook-pro.local:8000';
   
   final Map<String, String> _headers = {
     'Content-Type': 'application/json',

@@ -2,7 +2,7 @@ import User from "../models /user.model";
 import { Request, Response ,NextFunction} from "express";
 import { ApiError } from "../utils/Apierror";
 import jwt from "jsonwebtoken";
-import { Types } from "mongoose";
+
 const jwtVerification = async (req:Request,res:Response,next: NextFunction) =>{
     try{
         // Try to get token from cookies first, then from Authorization header
@@ -11,11 +11,9 @@ const jwtVerification = async (req:Request,res:Response,next: NextFunction) =>{
         if (!token) {
             const authHeader = req.headers["authorization"] || req.headers["Authorization"];
             if (authHeader && typeof authHeader === 'string') {
-                // Handle "Bearer <token>" format
                 if (authHeader.startsWith('Bearer ')) {
                     token = authHeader.substring(7);
                 } else {
-                    // Handle direct token
                     token = authHeader;
                 }
             }
@@ -38,10 +36,5 @@ const jwtVerification = async (req:Request,res:Response,next: NextFunction) =>{
     throw new ApiError(401,  "Invalid access token")
     
    }
-
-    
-
-
-
 }
 export default jwtVerification;

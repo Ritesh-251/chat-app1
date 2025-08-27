@@ -6,9 +6,7 @@ import { Types } from "mongoose";
 import { generateAIResponse } from "../services/openai.service";
 
 /**
- * HELPER FUNCTION: Smart conversation truncation
- * Purpose: Prevent token limit issues while maintaining context
- * Keeps first message for context + recent messages for current discussion
+  Prevent token limit issues while maintaining context
  */
 function truncateConversationHistory(messages: any[], maxMessages: number = 20): any[] {
     if (messages.length <= maxMessages) {
@@ -48,8 +46,7 @@ export const startChatWithMessage = asyncHandler(async (req: Request, res: Respo
 
     try {
         autoTitle = await generateAIResponse(
-            [{ role: "user", content: titlePrompt }],
-            userId.toString()
+            [{ role: "user", content: titlePrompt }]
         );
 
         // In case AI generates something too long, fallback to first 50 chars
@@ -434,7 +431,7 @@ export const sendMessageWithAI = asyncHandler(async (req: Request, res: Response
  * UPDATE CHAT TITLE
  * Purpose: Allow students to organize their conversations
  * Research Value: Track how students categorize their academic discussions
- */
+ Maybe if we want it to be manual later 
 export const updateChat = asyncHandler(async (req: Request, res: Response) => {
     const { chatId } = req.params;
     const { title } = req.body;
@@ -475,6 +472,7 @@ export const updateChat = asyncHandler(async (req: Request, res: Response) => {
         }
     });
 });
+*/
 
 /**
  * DELETE CHAT (TIME-RESTRICTED)
@@ -612,73 +610,6 @@ export const deleteMessage = asyncHandler(async (req: Request, res: Response) =>
  * Purpose: Check if chat/message can be deleted (within 15-minute window)
  * Research Value: Provide transparency about data retention policy
  */
-export const checkDeletionEligibility = asyncHandler(async (req: Request, res: Response) => {
-    const { chatId, messageId } = req.params;
-    const userId = (req as any).user._id;
-
-    // Validate chat ID
-    if (!chatId) {
-        throw new ApiError(400, "Chat ID is required");
-    }
-    
-    if (!Types.ObjectId.isValid(chatId)) {
-        throw new ApiError(400, "Invalid chat ID format");
-    }
-
-    // Find and verify chat ownership
-    const chat = await Chat.findOne({
-        _id: new Types.ObjectId(chatId),
-        userId: new Types.ObjectId(userId),
-        isActive: true
-    });
-
-    if (!chat) {
-        throw new ApiError(404, "Chat not found or access denied");
-    }
-
-    const now = new Date();
-    const fifteenMinutesInMs = 15 * 60 * 1000;
-
-    // Check chat deletion eligibility
-    const chatCreatedAt = new Date(chat.createdAt);
-    const chatTimeDifference = now.getTime() - chatCreatedAt.getTime();
-    const chatCanDelete = chatTimeDifference <= fifteenMinutesInMs;
-    const chatTimeRemaining = Math.max(0, fifteenMinutesInMs - chatTimeDifference);
-
-    let messageEligibility = null;
-
-    // If messageId provided, check message deletion eligibility
-    if (messageId) {
-        const message = chat.messages.find(msg => (msg as any)._id?.toString() === messageId);
-        
-        if (message) {
-            const messageCreatedAt = new Date(message.timestamp);
-            const messageTimeDifference = now.getTime() - messageCreatedAt.getTime();
-            const messageCanDelete = messageTimeDifference <= fifteenMinutesInMs;
-            const messageTimeRemaining = Math.max(0, fifteenMinutesInMs - messageTimeDifference);
-
-            messageEligibility = {
-                canDelete: messageCanDelete,
-                timeRemaining: messageTimeRemaining,
-                timeRemainingFormatted: formatTimeRemaining(messageTimeRemaining)
-            };
-        }
-    }
-
-    return res.status(200).json({
-        success: true,
-        message: "Deletion eligibility checked",
-        data: {
-            chat: {
-                canDelete: chatCanDelete,
-                timeRemaining: chatTimeRemaining,
-                timeRemainingFormatted: formatTimeRemaining(chatTimeRemaining)
-            },
-            message: messageEligibility,
-            policy: "You can delete chats and messages within 15 minutes of creation. After that, they become permanent for research purposes."
-        }
-    });
-});
 
 // Helper function to format time remaining
 function formatTimeRemaining(milliseconds: number): string {

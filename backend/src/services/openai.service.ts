@@ -41,12 +41,9 @@ export async function generateAIResponse(
       max_tokens: 1000, // Reasonable limit for academic responses
     };
 
-    // Add user ID if provided
-    if (userId) {
-      requestParams.user = userId;
-    }
 
     // Call OpenAI API
+
     const completion = await openai.chat.completions.create(requestParams);
 
     // Extract response

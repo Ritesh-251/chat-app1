@@ -18,6 +18,8 @@ export interface IChat extends Document {
   isActive: boolean;
   archivedAt?: Date;
   archiveReason?: string;
+  flagged?: boolean;
+  flagReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,8 +39,7 @@ const messageSchema = new Schema<IMessage>({
     type: Date,
     default: Date.now
   }
-}); // Removed { _id: false } to allow MongoDB to generate message IDs
-
+}); 
 
 // Main chat schema
 const chatSchema = new Schema<IChat>({
@@ -69,6 +70,14 @@ const chatSchema = new Schema<IChat>({
   archiveReason: {
     type: String,
     enum: ['user-archived', 'auto-archived-old', 'user-deleted', 'user-deleted-within-window', 'admin-archived'],
+    required: false
+  },
+  flagged: {
+    type: Boolean,
+    default: false
+  },
+  flagReason: {
+    type: String,
     required: false
   }
 }, { 
