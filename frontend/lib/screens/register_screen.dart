@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/text_field.dart';
 import 'chat_screen.dart';
+import 'consent_screen.dart';
 import 'login_screen.dart';
+import '../services/consent_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const route = '/register';
@@ -42,12 +45,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted) {
         if (result['success'] == true) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const ChatScreen(),
-            ),
-          );
+          // After registration, always go to consent screen (no consent check)
+          Navigator.pushReplacementNamed(context, ConsentScreen.route);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(result['message'] ?? 'Registration failed')),

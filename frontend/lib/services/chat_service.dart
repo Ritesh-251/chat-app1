@@ -273,8 +273,4 @@ class ChatService {
     }
   }
 
-  // Method to check if backend is available
-  Future<bool> checkBackendConnection() async {
-    return await _apiService.isServerReachable();
-  }
 }

@@ -1,7 +1,7 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, Document,Types} from "mongoose";
 
 export interface IConsent extends Document {
-  researchId: string;
+  userId: Types.ObjectId;
   conversationLogs: boolean;
   appUsage: boolean;
   audio: boolean;
@@ -9,7 +9,10 @@ export interface IConsent extends Document {
 }
 
 const ConsentSchema = new Schema<IConsent>({
-  researchId: { type: String, required: true, unique: true },
+  userId:{
+    type: Schema.ObjectId,
+    ref:'User'
+  },
   conversationLogs: { type: Boolean, default: true },
   appUsage: { type: Boolean, default: true },
   audio: { type: Boolean, default: false },

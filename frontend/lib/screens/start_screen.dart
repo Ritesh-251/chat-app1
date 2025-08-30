@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/consent_service.dart';
 import 'chat_screen.dart';
+import 'consent_screen.dart';
 import 'login_screen.dart';
 
 class StartScreen extends StatefulWidget {
@@ -15,10 +17,14 @@ class _StartScreenState extends State<StartScreen> {
   @override
   void initState() {
     super.initState();
-    // Listen once; if logged in, jump to chat.
-    AuthService.instance.authChanges.listen((user) {
+    AuthService.instance.authChanges.listen((user) async {
       if (mounted && user != null) {
-        Navigator.pushReplacementNamed(context, ChatScreen.route);
+  final consent = await ConsentService.instance.getConsent();
+        if (consent != null) {
+          Navigator.pushReplacementNamed(context, ChatScreen.route);
+        } else {
+          Navigator.pushReplacementNamed(context, ConsentScreen.route);
+        }
       }
     });
   }

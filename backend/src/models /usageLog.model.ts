@@ -1,7 +1,7 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, Document,Types} from "mongoose";
 
 export interface IUsageLog extends Document {
-  researchId: string;
+  userId:Schema.Types.ObjectId,
   package: string;
   timeUsed: number; 
   startTime: Date;
@@ -11,7 +11,11 @@ export interface IUsageLog extends Document {
 
 const UsageLogSchema = new Schema<IUsageLog>(
   {
-    researchId: { type: String, required: true },
+    userId: {
+      type:Schema.ObjectId,
+      ref:'User'
+    },
+   
     package: { type: String, required: true },
     timeUsed: { type: Number, required: true },
     startTime: { type: Date, required: true },

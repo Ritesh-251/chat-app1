@@ -1,8 +1,11 @@
 import { Router } from "express";
-import { saveConsent } from "../controllers/consent.contoller";
+import { saveConsent,getConsent} from "../controllers/consent.contoller";
+import jwtVerification from "../middleware/authMiddleware";
 
 const router = Router();
 
-router.post("/consent", saveConsent);
+router.post("/",jwtVerification, saveConsent);
+router.get("/", jwtVerification, getConsent);
+
 
 export default router;

@@ -5,6 +5,9 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/chat_history_drawer.dart';
 import '../widgets/delete_confirmation_popup.dart';
 import '../screens/login_screen.dart';
+import '../services/app_usage_service.dart';
+import '../services/consent_service.dart';
+import '../services/usage_service.dart';
 
 class ChatScreen extends StatefulWidget {
   static const route = '/chat';
@@ -21,10 +24,38 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isConnected = true;
   final Map<String, bool> _messageCanDelete = {}; // Track which messages can be deleted
 
+  bool _appUsageConsent = false;
+
   @override
   void initState() {
     super.initState();
     _initializeChat();
+    _loadConsentAndSendUsage();
+  }
+
+  Future<void> _loadConsentAndSendUsage() async {
+    try {
+      final consent = await ConsentService.instance.getConsent();
+      if (consent != null && consent['appUsage'] == true) {
+        setState(() {
+          _appUsageConsent = true;
+        });
+        final now = DateTime.now();
+        final startOfDay = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+        final endOfDay = now.millisecondsSinceEpoch;
+        try {
+          final usageStats = await AppUsageService.getAppUsageStats(startOfDay, endOfDay);
+          print('App usage stats for today:');
+          print(usageStats);
+          // Send to backend
+          await UsageService.instance.sendUsageLogs(usageStats);
+        } catch (e) {
+          print('Failed to get/send app usage stats: $e');
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
   }
 
   Future<void> _checkMessageDeletionEligibility() async {
@@ -87,31 +118,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeChat() async {
-    // Check backend connection
-    final connected = await _chatService.checkBackendConnection();
+    // Try to load recent chat (like ChatGPT)
+    final hasRecentChat = await _chatService.loadRecentChat();
     if (mounted) {
       setState(() {
-        _isConnected = connected;
+        // UI will rebuild with loaded messages
       });
-      
-      if (connected) {
-        // Try to load recent chat (like ChatGPT)
-        final hasRecentChat = await _chatService.loadRecentChat();
-        if (mounted) {
-          setState(() {
-            // UI will rebuild with loaded messages
-          });
-          // Check deletion eligibility for loaded messages
-          _checkMessageDeletionEligibility();
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Warning: Backend server not reachable. Please check if your server is running.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+      // Check deletion eligibility for loaded messages
+      _checkMessageDeletionEligibility();
     }
   }
 

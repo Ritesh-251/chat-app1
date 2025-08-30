@@ -44,7 +44,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/v1/user/signup'),
-        headers: _headers,
+        headers: ApiService.instance.headers,
         body: jsonEncode({
           'name': name,
           'email': email,
@@ -82,7 +82,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/v1/user/Signin'),
-        headers: _headers,
+        headers: ApiService.instance.headers,
         body: jsonEncode({
           'email': email,
           'password': password,
@@ -365,15 +365,4 @@ class ApiService {
     }
   }
 
-  Future<bool> isServerReachable() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/v1/user/test'),
-        headers: _headers,
-      ).timeout(const Duration(seconds: 5));
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
 }
