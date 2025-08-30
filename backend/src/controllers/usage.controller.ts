@@ -5,7 +5,7 @@ import { Consent } from "../models /consent.model";
 export const saveUsageLogs = async (req: Request, res: Response) => {
   try {
     const logs = req.body;
-    const userId = (req as any)?._id;
+    const userId = (req as any).user?._id;
 
     if (!Array.isArray(logs) || logs.length === 0) {
       return res.status(400).json({ error: "No logs provided" });

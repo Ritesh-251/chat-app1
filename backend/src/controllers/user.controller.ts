@@ -53,20 +53,31 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
         throw new ApiError(500, "Something went wrong while registering the user");
     }
 
-    return res.status(200).json({
-        success: true,
-        message: "User registered successfully",
-          data: {
-            email: createdUser.email,
-            name: createdUser.name,
-            enrollment: createdUser.enrollment,
-            batch: createdUser.batch,
-            course: createdUser.course,
-            country: createdUser.country,
-            researchId: createdUser.researchId, // 🔑 include researchId
-            createdAt: createdUser.createdAt
-        }
-    });
+    // Generate tokens just like in Signin
+    const { accessToken, refreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId);
+    const options = {
+        httpOnly: true,
+        secure: false,
+    };
+
+    return res.status(201)
+        .cookie('accessToken', accessToken, options)
+        .cookie('refreshToken', refreshToken, options)
+        .json({
+            token: accessToken,
+            user: {
+                email: createdUser.email,
+                name: createdUser.name,
+                enrollment: createdUser.enrollment,
+                batch: createdUser.batch,
+                course: createdUser.course,
+                country: createdUser.country,
+                researchId: createdUser.researchId,
+                createdAt: createdUser.createdAt
+            },
+            success: true,
+            message: "User registered successfully"
+        });
 });
 export const Signin = asyncHandler(async(req:Request, res:Response)=>{
     const { email, password } = req.body;

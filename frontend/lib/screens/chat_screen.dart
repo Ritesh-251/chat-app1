@@ -30,10 +30,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _initializeChat();
-    _loadConsentAndSendUsage();
+    _sendUsageLogsIfConsented();
   }
 
-  Future<void> _loadConsentAndSendUsage() async {
+  Future<void> _sendUsageLogsIfConsented() async {
     try {
       final consent = await ConsentService.instance.getConsent();
       if (consent != null && consent['appUsage'] == true) {
@@ -45,16 +45,18 @@ class _ChatScreenState extends State<ChatScreen> {
         final endOfDay = now.millisecondsSinceEpoch;
         try {
           final usageStats = await AppUsageService.getAppUsageStats(startOfDay, endOfDay);
-          print('App usage stats for today:');
-          print(usageStats);
-          // Send to backend
-          await UsageService.instance.sendUsageLogs(usageStats);
+          if (usageStats.isNotEmpty) {
+            await UsageService.instance.sendUsageLogs(usageStats);
+            print('App usage logs sent to backend.');
+          } else {
+            print('No app usage stats to send.');
+          }
         } catch (e) {
           print('Failed to get/send app usage stats: $e');
         }
       }
     } catch (e) {
-      // ignore
+      print('Error checking consent or sending usage logs: $e');
     }
   }
 

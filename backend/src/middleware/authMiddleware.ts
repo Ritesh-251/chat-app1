@@ -7,6 +7,7 @@ const jwtVerification = async (req:Request,res:Response,next: NextFunction) =>{
     try{
         // Try to get token from cookies first, then from Authorization header
         let token = req.cookies?.accessToken;
+
         
         if (!token) {
             const authHeader = req.headers["authorization"] || req.headers["Authorization"];

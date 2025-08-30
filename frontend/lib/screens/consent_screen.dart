@@ -12,15 +12,54 @@ class ConsentScreen extends StatefulWidget {
   State<ConsentScreen> createState() => _ConsentScreenState();
 }
 
-class _ConsentScreenState extends State<ConsentScreen> {
+class _ConsentScreenState extends State<ConsentScreen> with WidgetsBindingObserver {
   bool conversationLogs = false;
   bool appUsage = false;
   bool audio = false;
 
+  bool _waitingForUsagePermission = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Consent will only be loaded when explicitly requested
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (_waitingForUsagePermission && state == AppLifecycleState.resumed) {
+      // Check permission again after returning from settings
+      bool hasPermission = false;
+      try {
+        hasPermission = await AppUsageService.hasUsagePermission();
+      } catch (e) {
+        print('Error checking usage permission on resume: $e');
+      }
+      if (hasPermission) {
+        // Permission granted, fetch and send usage logs
+        try {
+          final now = DateTime.now();
+          final startOfDay = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+          final endOfDay = now.millisecondsSinceEpoch;
+          final usageStats = await AppUsageService.getAppUsageStats(startOfDay, endOfDay);
+          await UsageService.instance.sendUsageLogs(usageStats);
+          print('Usage logs sent after permission granted.');
+        } catch (e) {
+          print('Failed to send usage logs after permission granted: $e');
+        }
+        _waitingForUsagePermission = false;
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/chat');
+        }
+      }
+    }
   }
 
   Future<void> _loadConsent() async {
@@ -46,16 +85,47 @@ class _ConsentScreenState extends State<ConsentScreen> {
     );
     print('Consent values: conversationLogs=$conversationLogs, appUsage=$appUsage, audio=$audio');
 
-    // If user consented to app usage, fetch and send usage logs
     if (appUsage) {
+      bool hasPermission = false;
       try {
-        final now = DateTime.now();
-        final startOfDay = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
-        final endOfDay = now.millisecondsSinceEpoch;
-        final usageStats = await AppUsageService.getAppUsageStats(startOfDay, endOfDay);
-        await UsageService.instance.sendUsageLogs(usageStats);
+        hasPermission = await AppUsageService.hasUsagePermission();
       } catch (e) {
-        print('Failed to send usage logs: $e');
+        print('Error checking usage permission: $e');
+      }
+      if (!hasPermission) {
+        // Show dialog and open settings
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text('Permission Required'),
+              content: Text('Please grant Usage Access permission to track app usage.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _waitingForUsagePermission = true;
+                    AppUsageService.openUsageSettings();
+                  },
+                  child: Text('Open Settings'),
+                ),
+              ],
+            ),
+          );
+        }
+        // Do not navigate yet; will navigate after permission is granted
+        return;
+      } else {
+        // Permission granted, fetch and send usage logs
+        try {
+          final now = DateTime.now();
+          final startOfDay = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+          final endOfDay = now.millisecondsSinceEpoch;
+          final usageStats = await AppUsageService.getAppUsageStats(startOfDay, endOfDay);
+          await UsageService.instance.sendUsageLogs(usageStats);
+        } catch (e) {
+          print('Failed to send usage logs: $e');
+        }
       }
     }
     Navigator.pushReplacementNamed(context, '/chat');

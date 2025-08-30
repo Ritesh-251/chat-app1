@@ -22,8 +22,8 @@ class AuthService {
   Future<Map<String, dynamic>> signIn(String email, String password) async {
     try {
       final response = await _apiService.login(email, password);
-      
       if (response['ok'] == true && response['token'] != null) {
+        ApiService.instance.setToken(response['token']);
         _currentUser = User(email: email, token: response['token']);
         _authStateController.add(_currentUser);
         return {'success': true, 'user': _currentUser};
@@ -64,6 +64,7 @@ class AuthService {
       if (response['ok'] == true) {
         if (response['token'] != null) {
           // Registration returned token directly
+          ApiService.instance.setToken(response['token']);
           _currentUser = User(email: email, token: response['token']);
           _authStateController.add(_currentUser);
           return {'success': true, 'user': _currentUser};

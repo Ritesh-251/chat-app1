@@ -1,6 +1,9 @@
 import 'package:flutter/services.dart';
 
 class AppUsageService {
+  static Future<bool> hasUsagePermission() async {
+    return await _channel.invokeMethod('hasUsagePermission');
+  }
   static const MethodChannel _channel = MethodChannel('app.usage.channel');
 
   static Future<List<Map<String, dynamic>>> getAppUsageStats(int start, int end) async {
