@@ -1,6 +1,6 @@
 // Get most recent chat for a user
 import { asyncHandler } from "../utils/asyncHandler";
-import User from "../models /user.model";
+import User from "../models/user.model";
 import { Request, Response } from "express";
 import { ApiError } from "../utils/Apierror";
 import { Types } from "mongoose";

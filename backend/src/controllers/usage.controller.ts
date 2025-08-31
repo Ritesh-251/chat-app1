@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { UsageLog } from "../models /usageLog.model";
-import { Consent } from "../models /consent.model";
+import { UsageLog } from "../models/usageLog.model";
+import { Consent } from "../models/consent.model";
 
 export const saveUsageLogs = async (req: Request, res: Response) => {
   try {

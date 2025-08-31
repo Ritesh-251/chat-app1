@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/Apierror";
-import Chat from "../models /chat.model";
+import Chat from "../models/chat.model";
 import { Types } from "mongoose";
 import { generateAIResponse } from "../services/openai.service";
 

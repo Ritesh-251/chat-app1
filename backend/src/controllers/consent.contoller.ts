@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Consent } from "../models /consent.model";
+import { Consent } from "../models/consent.model";
 
 
 export const getConsent = async (req: Request, res: Response) => {

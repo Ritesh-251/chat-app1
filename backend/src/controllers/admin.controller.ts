@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import Admin from "../models /admin.model";
-import User from "../models /user.model";
-import Chat from "../models /chat.model";
+import Admin from "../models/admin.model";
+import User from "../models/user.model";
+import Chat from "../models/chat.model";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/Apierror";
 import * as XLSX from 'xlsx';

@@ -1,4 +1,4 @@
-import Admin from "../models /admin.model";
+import Admin from "../models/admin.model";
 import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils/Apierror";
 import jwt from "jsonwebtoken";
