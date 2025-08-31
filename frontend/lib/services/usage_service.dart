@@ -7,7 +7,7 @@ class UsageService {
   static final instance = UsageService._();
 
   Future<bool> sendUsageLogs(List<Map<String, dynamic>> logs) async {
-    final url = '${ApiService.baseUrl}/api/v1/usuage/';
+    final url = '${ApiService.baseUrl}/api/v1/usage/';
     print('[USAGE] Sending usage logs to: ' + url);
     print('[USAGE] Logs: ' + jsonEncode(logs));
     final response = await http.post(

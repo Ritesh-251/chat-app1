@@ -24,7 +24,7 @@ app.use('/api/v1/user', userRouter);
 app.use('/api/v1/chat', chatRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use("/api/v1/consent", consentRoutes);
-app.use("/api/v1/usuage", usageRoutes);
+app.use("/api/v1/usage", usageRoutes);
 
 
 export default app;
