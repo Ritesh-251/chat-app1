@@ -12,7 +12,8 @@ class ConsentScreen extends StatefulWidget {
   State<ConsentScreen> createState() => _ConsentScreenState();
 }
 
-class _ConsentScreenState extends State<ConsentScreen> with WidgetsBindingObserver {
+class _ConsentScreenState extends State<ConsentScreen>
+    with WidgetsBindingObserver {
   bool conversationLogs = false;
   bool appUsage = false;
   bool audio = false;
@@ -23,7 +24,7 @@ class _ConsentScreenState extends State<ConsentScreen> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Consent will only be loaded when explicitly requested
+    _loadConsent();
   }
 
   @override
@@ -32,32 +33,39 @@ class _ConsentScreenState extends State<ConsentScreen> with WidgetsBindingObserv
     super.dispose();
   }
 
+  List<Map<String, dynamic>> _formatUsageLogs(List<dynamic> usageStats) {
+    return usageStats.map((rawLog) {
+      final raw = rawLog as Map<Object?, Object?>;
+      final packageName = raw['packageName']?.toString() ?? 'unknown';
+      final lastTimeUsed = (raw['lastTimeUsed'] as int?) ?? 0;
+      final totalTime = (raw['totalTimeInForeground'] as int?) ?? 0;
+
+      // Skip logs with no meaningful usage
+      if (lastTimeUsed == 0 || totalTime <= 0) return null;
+
+      final endTime = DateTime.fromMillisecondsSinceEpoch(lastTimeUsed);
+      final startTime = endTime.subtract(Duration(milliseconds: totalTime));
+
+      return {
+        'package': packageName,
+        'timeUsed': totalTime,
+        'startTime': startTime.toIso8601String(),
+        'endTime': endTime.toIso8601String(),
+      };
+    })
+    .where((log) => log != null)
+    .cast<Map<String, dynamic>>()
+    .toList();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (_waitingForUsagePermission && state == AppLifecycleState.resumed) {
-      // Check permission again after returning from settings
-      bool hasPermission = false;
-      try {
-        hasPermission = await AppUsageService.hasUsagePermission();
-      } catch (e) {
-        print('Error checking usage permission on resume: $e');
-      }
+      bool hasPermission = await AppUsageService.hasUsagePermission();
       if (hasPermission) {
-        // Permission granted, fetch and send usage logs
-        try {
-          final now = DateTime.now();
-          final startOfDay = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
-          final endOfDay = now.millisecondsSinceEpoch;
-          final usageStats = await AppUsageService.getAppUsageStats(startOfDay, endOfDay);
-          await UsageService.instance.sendUsageLogs(usageStats);
-          print('Usage logs sent after permission granted.');
-        } catch (e) {
-          print('Failed to send usage logs after permission granted: $e');
-        }
+        await _sendUsageLogs();
         _waitingForUsagePermission = false;
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/chat');
-        }
+        if (mounted) Navigator.pushReplacementNamed(context, '/chat');
       }
     }
   }
@@ -73,62 +81,77 @@ class _ConsentScreenState extends State<ConsentScreen> with WidgetsBindingObserv
         });
       }
     } catch (e) {
-      // ignore
+      print("Error loading consent: $e");
+    }
+  }
+
+  Future<void> _sendUsageLogs() async {
+    try {
+      final now = DateTime.now();
+      final startOfDay =
+          DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+      final endOfDay = now.millisecondsSinceEpoch;
+
+      final usageStats =
+          await AppUsageService.getAppUsageStats(startOfDay, endOfDay);
+      final logs = _formatUsageLogs(usageStats);
+
+      if (logs.isEmpty) {
+        print('No valid usage logs to send.');
+        return;
+      }
+
+      await UsageService.instance.sendUsageLogs(logs); // ✅ headers included
+      print('Usage logs sent successfully.');
+    } catch (e) {
+      print('Failed to send usage logs: $e');
     }
   }
 
   Future<void> _submitConsent() async {
-    await ConsentService.instance.sendConsent(
-      conversationLogs: conversationLogs,
-      appUsage: appUsage,
-      audio: audio,
-    );
-    print('Consent values: conversationLogs=$conversationLogs, appUsage=$appUsage, audio=$audio');
+    try {
+      await ConsentService.instance.sendConsent(
+        conversationLogs: conversationLogs,
+        appUsage: appUsage,
+        audio: audio,
+      );
 
-    if (appUsage) {
-      bool hasPermission = false;
-      try {
-        hasPermission = await AppUsageService.hasUsagePermission();
-      } catch (e) {
-        print('Error checking usage permission: $e');
-      }
-      if (!hasPermission) {
-        // Show dialog and open settings
-        if (mounted) {
-          await showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: Text('Permission Required'),
-              content: Text('Please grant Usage Access permission to track app usage.'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _waitingForUsagePermission = true;
-                    AppUsageService.openUsageSettings();
-                  },
-                  child: Text('Open Settings'),
-                ),
-              ],
-            ),
-          );
-        }
-        // Do not navigate yet; will navigate after permission is granted
-        return;
-      } else {
-        // Permission granted, fetch and send usage logs
-        try {
-          final now = DateTime.now();
-          final startOfDay = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
-          final endOfDay = now.millisecondsSinceEpoch;
-          final usageStats = await AppUsageService.getAppUsageStats(startOfDay, endOfDay);
-          await UsageService.instance.sendUsageLogs(usageStats);
-        } catch (e) {
-          print('Failed to send usage logs: $e');
+      print(
+          'Consent values: conversationLogs=$conversationLogs, appUsage=$appUsage, audio=$audio');
+
+      if (appUsage) {
+        bool hasPermission = await AppUsageService.hasUsagePermission();
+        if (!hasPermission) {
+          if (mounted) {
+            await showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Permission Required'),
+                content: const Text(
+                    'Please grant Usage Access permission to track app usage.'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _waitingForUsagePermission = true;
+                      AppUsageService.openUsageSettings();
+                    },
+                    child: const Text('Open Settings'),
+                  ),
+                ],
+              ),
+            );
+          }
+          return;
+        } else {
+          await _sendUsageLogs();
         }
       }
+
+      if (mounted) Navigator.pushReplacementNamed(context, '/chat');
+    } catch (e) {
+      print('Error submitting consent: $e');
     }
-    Navigator.pushReplacementNamed(context, '/chat');
   }
 
   @override
