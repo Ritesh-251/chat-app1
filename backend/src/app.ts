@@ -5,6 +5,7 @@ import chatRouter from './routes/chat.routes'
 import adminRouter from './routes/admin.route'
 import consentRoutes from "./routes/consent.routes";
 import usageRoutes from "./routes/usagelog.routes";
+import notificationRouter from "./routes/notification.route"
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/v1/chat', chatRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use("/api/v1/consent", consentRoutes);
 app.use("/api/v1/usage", usageRoutes);
+app.use('/api/v1/notification',notificationRouter);
 
 
 export default app;

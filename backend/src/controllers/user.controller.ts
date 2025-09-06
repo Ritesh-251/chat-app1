@@ -72,7 +72,6 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
                 batch: createdUser.batch,
                 course: createdUser.course,
                 country: createdUser.country,
-                researchId: createdUser.researchId,
                 createdAt: createdUser.createdAt
             },
             success: true,
@@ -100,7 +99,6 @@ export const Signin = asyncHandler(async(req:Request, res:Response)=>{
         token:accessToken, user: {
                 email: loggedinUser.email,
                 name: loggedinUser.name,
-                researchId: loggedinUser.researchId, 
             },
     })
 })

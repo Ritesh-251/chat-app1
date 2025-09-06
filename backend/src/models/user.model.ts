@@ -12,7 +12,6 @@ export interface IUser extends Document {
   country?: string;
   email: string;
   password: string;
-  researchId: string;  
   refreshToken?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -53,12 +52,6 @@ const userSchema = new Schema<IUser>(
       required: true,
       minLength: 6,
     },
-    researchId: {
-      type: String,
-      required: true,
-      unique: true,
-      default: uuidv4,   
-    },
     refreshToken: {
       type: String,
       required: false,
@@ -85,7 +78,6 @@ userSchema.methods.generateAccessToken = function (this: IUser): string {
   const payload = {
     _id: this._id,
     email: this.email,
-    researchId: this.researchId,  // include researchId in JWT if needed
   };
 
   const options: SignOptions = {

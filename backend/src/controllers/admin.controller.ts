@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Admin from "../models/admin.model";
 import User from "../models/user.model";
 import Chat from "../models/chat.model";
+import { UsageLog } from "../models/usageLog.model";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/Apierror";
 import * as XLSX from 'xlsx';
@@ -430,11 +431,13 @@ export const exportData = asyncHandler(async (req: Request, res: Response) => {
             .populate('userId', 'name email batch course country')
             .select('messages createdAt updatedAt flagged flagReason userId')
             .lean();
+        // Get all usage logs - only include user ID without populating
+        const usageLogs = await UsageLog.find().lean();
 
         // Build Students sheet
       // ---------- Students ----------
 const studentsSheet = students.map((u) => ({
-  ResearchID: u.researchId || "",
+  UserID: u._id.toString() || "",
   Batch: u.batch || "",
   Course: u.course || "",
   Country: u.country || "",
@@ -442,14 +445,14 @@ const studentsSheet = students.map((u) => ({
     (c) =>
       c.userId &&
       typeof c.userId === "object" &&
-      (c.userId as any).researchId === u.researchId
+      (c.userId as any)._id.equals(u._id)
   ).length,
   LastActivity: (() => {
     const userChats = chats.filter(
       (c) =>
         c.userId &&
         typeof c.userId === "object" &&
-        (c.userId as any).researchId === u.researchId
+        (c.userId as any)._id.equals(u._id)
     );
     if (!userChats.length) return "";
     return new Date(
@@ -463,17 +466,17 @@ const studentsSheet = students.map((u) => ({
   
 // ---------- Chats ----------
 const chatsSheet = chats.map((c) => {
-  let researchId = "";
+  let userId = "";
 
   if (c.userId && typeof c.userId === "object" && c.userId !== null) {
     if ("_id" in c.userId) {
-      researchId = (c.userId as any).researchId || "";
+      userId = (c.userId as any)._id.toString() || "";
     }
   }
 
   return {
     ChatID: c._id?.toString() || "",
-    ResearchID: researchId,
+    UserID: userId,
     MessageCount: c.messages?.length || 0,
     Flagged: c.flagged ? "true" : "false",
     FlagReason: c.flagReason || "",
@@ -502,6 +505,19 @@ const chatsSheet = chats.map((c) => {
             }
         });
 
+        // Build Usage Logs sheet
+        const usageLogsSheet = usageLogs.map((log) => {
+            return {
+                LogID: log._id?.toString() || "",
+                UserID: log.userId?.toString() || "",
+                Package: log.package || "",
+                TimeUsed: log.timeUsed || 0,
+                StartTime: log.startTime ? new Date(log.startTime).toLocaleString() : "",
+                EndTime: log.endTime ? new Date(log.endTime).toLocaleString() : "",
+                CreatedAt: log.createdAt ? new Date(log.createdAt).toLocaleString() : "",
+            };
+        });
+
         if (format === 'xlsx') {
             // Create Excel workbook
             const workbook = XLSX.utils.book_new();
@@ -514,6 +530,9 @@ const chatsSheet = chats.map((c) => {
             // Add Messages sheet
             const messagesWS = XLSX.utils.json_to_sheet(messagesSheet);
             XLSX.utils.book_append_sheet(workbook, messagesWS, "Messages");
+            // Add Usage Logs sheet
+            const usageLogsWS = XLSX.utils.json_to_sheet(usageLogsSheet);
+            XLSX.utils.book_append_sheet(workbook, usageLogsWS, "Usage Logs");
             // Generate buffer
             const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
             // Set headers for file download
@@ -528,7 +547,8 @@ const chatsSheet = chats.map((c) => {
                 data: {
                     students: studentsSheet,
                     chats: chatsSheet,
-                    messages: messagesSheet
+                    messages: messagesSheet,
+                    usageLogs: usageLogsSheet
                 },
                 exportedAt: new Date()
             });

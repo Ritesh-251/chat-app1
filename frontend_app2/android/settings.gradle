@@ -1,0 +1,2 @@
+rootProject.name = 'frontend_app2'
+include ':app'

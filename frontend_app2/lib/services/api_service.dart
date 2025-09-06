@@ -56,7 +56,7 @@ class ApiService {
         }),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return {
           'ok': data['success'] ?? false,
@@ -365,15 +365,4 @@ class ApiService {
     }
   }
 
-  Future<bool> isServerReachable() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/v1/user/test'),
-        headers: _headers,
-      ).timeout(const Duration(seconds: 5));
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
 }
