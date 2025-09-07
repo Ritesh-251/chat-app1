@@ -265,3 +265,4 @@ temp/
 *.key
 config.local.json
 auth.json
+backend/src/serviceAccountKey.json
