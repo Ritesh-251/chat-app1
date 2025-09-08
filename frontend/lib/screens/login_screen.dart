@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscure: true,
                 validator: (v) => v!.length >= 6 ? null : 'Min 6 chars',
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 9),
               PrimaryButton(label: 'Login', onPressed: _login, loading: _loading),
               const SizedBox(height: 12),
               TextButton(

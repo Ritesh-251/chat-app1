@@ -264,7 +264,7 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
                       color: Colors.white,
                       size: 28, // Slightly smaller icon
                     ),
-                    const SizedBox(height: 6), // Reduced spacing
+                    const SizedBox(height: 0.3), // Reduced spacing
                     const Text(
                       'Chat History',
                       style: TextStyle(

@@ -3,6 +3,6 @@ import { notifications } from "../controllers/notificaton.controller";
 
 const router = Router();
 
-router.post("/notification", notifications);
+router.post("/", notifications);
 
 export default router;
