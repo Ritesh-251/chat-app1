@@ -61,13 +61,15 @@ class _AppState extends State<App> {
 }
 
 
-  void _showNotification(RemoteMessage message) async {
+    void _showNotification(RemoteMessage message) async {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'default_channel',
-      'Default Notifications',
+      'channel_id',
+      'channel_name',
+      channelDescription: 'Default notification channel',
       importance: Importance.max,
       priority: Priority.high,
+      icon: '@drawable/ic_launcher', 
     );
 
     const NotificationDetails platformDetails =
@@ -75,11 +77,12 @@ class _AppState extends State<App> {
 
     await flutterLocalNotificationsPlugin.show(
       0,
-      message.notification?.title ?? 'New Notification',
+      message.notification?.title ?? '📢 Notification',
       message.notification?.body ?? '',
       platformDetails,
     );
   }
+
 
   @override
   Widget build(BuildContext context) {

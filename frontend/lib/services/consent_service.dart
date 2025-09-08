@@ -7,7 +7,6 @@ class ConsentService {
   ConsentService._();
   static final instance = ConsentService._();
 
-  /// Save (or update) consent
   Future<bool> sendConsent({
     required bool conversationLogs,
     required bool appUsage,

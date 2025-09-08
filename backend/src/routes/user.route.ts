@@ -9,5 +9,4 @@ const router = Router();
 router.post("/signup", validateRequest(userSignupSchema), registerUser);
 router.post("/Signin", validateRequest(userLoginSchema), Signin);
 router.post('/logout',jwtVerification,logoutUser);
-
 export default router;
