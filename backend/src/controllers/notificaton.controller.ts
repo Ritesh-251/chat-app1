@@ -1,38 +1,56 @@
 import { Request, Response } from "express";
 import admin from "../firebase";
-import { generateAIResponse } from "../services/openai.service";
+
+// Predefined messages
+const notificationMessages = [
+  "📚 Ready for a quick study boost? Let’s go!",
+  "⏰ Your AI buddy is waiting to help you today!",
+  "💡 Time to sharpen your mind—just 10 mins of study!",
+  "🔥 A little focus now, big rewards later!",
+  "📖 Open your books, your future self will thank you!",
+  "🚀 Let’s crush one more topic today!",
+  "🎯 Stay consistent, you’re doing amazing!",
+  "🧠 Exercise your brain, one chapter at a time!",
+  "✨ Your progress is adding up—keep it going!",
+  "🌱 Growth happens a little every day, study time!",
+  "📈 Keep leveling up, champion!",
+  "⚡ Quick revision now = easier tests later!",
+  "🎓 Step closer to your goals today!",
+  "💪 You’ve got this—let’s start small!",
+  "🔑 One topic today = confidence tomorrow!",
+  "📅 Don’t break the streak, 5 mins study now!",
+  "🎶 Study vibes on! Let’s do this!",
+  "📔 Notes are waiting to be reviewed!",
+  "🌟 Build your skills brick by brick!",
+  "💭 A focused mind is unstoppable!",
+  "🕒 Even a short study session counts!",
+  "📕 Knowledge is your superpower, unlock it!",
+  "🚴 Small effort today, big results tomorrow!",
+  "🏆 Keep hustling, you're closer than you think!",
+  "🌞 Morning brain boost: review one topic!",
+  "🌙 Night owl? Let’s revise before bed!",
+  "🎉 Consistency beats motivation every time!",
+  "🌍 The world is yours, keep learning!",
+  "⚙️ Sharpen your tools, master your craft!",
+  "📌 10 minutes of study now > 0 later!",
+];
 
 export const notifications = async (req: Request, res: Response) => {
   try {
-    const { token } = req.body; // FCM token from Flutter
+    const { token } = req.body; 
     if (!token) return res.status(400).json({ message: "FCM token required" });
 
-    const notificationPrompt = `Generate a short, friendly, and motivating notification message that encourages a student to open the app and continue their study routine.  
-The tone should be supportive, positive, and age-appropriate, as if a helpful study buddy is gently reminding them.  
-Use a small, friendly emoji at the start.  
-Make the message feel personal and actionable, so the student feels like opening the app will help them right now.  
-Example formats:
+    // Pick a random message
+    const randomIndex = Math.floor(Math.random() * notificationMessages.length);
+    const randomMessage = notificationMessages[randomIndex];
 
-"📚 Ready for a quick study boost? Let’s go!"
-
-"⏰ Your study buddy is waiting to help you today!"
-
-Avoid sounding too formal or pushy.  
-Do not use generic phrases like "open the app now."  
-Keep the message under 60 characters.`
-        
-        
-    const notification = await generateAIResponse([
-      { role: "system", content: notificationPrompt }
-    ]);
-
-    const message = {
-      token,
-      notification: {
-        title: "📢 Study Reminder",
-        body: notification,
-      },
-    };
+   const message = {
+  token,
+  notification: {
+    title: "📢 Reminder",
+    body: randomMessage || "Time for little study magic! 📚", 
+  },
+};
 
     await admin.messaging().send(message);
 
