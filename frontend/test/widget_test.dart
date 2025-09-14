@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:chatbot_app/main.dart';
+import 'package:chat_app1/main.dart';
 
 void main() {
   testWidgets('App loads and shows login screen', (WidgetTester tester) async {

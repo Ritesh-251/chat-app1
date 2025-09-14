@@ -1,8 +1,7 @@
-import { Request, Response } from "express";
+import cron from "node-cron";
 import admin from "../firebase";
 import Token from "../models/token";
 
-// Predefined messages
 const notificationMessages = [
   "📚 Ready for a quick study boost? Let’s go!",
   "⏰ Your AI buddy is waiting to help you today!",
@@ -36,17 +35,32 @@ const notificationMessages = [
   "📌 10 minutes of study now > 0 later!",
 ];
 
-export const notifications = async (req: Request, res: Response) => {
+async function sendNotificationToToken(token: string) {
   try {
-    const { token } = req.body; 
-    if (!token) return res.status(400).json({ message: "FCM token required" });
+    const randomMessage =
+      notificationMessages[Math.floor(Math.random() * notificationMessages.length)];
 
-    // Save token if not already stored
-    await Token.findOneAndUpdate({ token }, { token }, { upsert: true, new: true });
+    await admin.messaging().send({
+      token,
+      notification: {
+        title: "📢 Study Reminder",
+        body: randomMessage|| "Time for a quick study boost! 📚",
+      },
+    });
 
-    return res.status(200).json({ message: "Token saved!" });
+    console.log(`✅ Notification sent to ${token}`);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Failed to save token" });
+    console.error(`❌ Failed for ${token}`, error);
   }
-};
+}
+
+// Cron job: every day at 8 PM
+cron.schedule("0 20 * * *", async () => {
+//cron.schedule("*/10 * * * * *", async () => {
+  console.log("⏰ Running daily notification job...");
+
+  const tokens = await Token.find({});
+  for (const user of tokens) {
+    await sendNotificationToToken(user.token);
+  }
+});

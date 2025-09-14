@@ -32,6 +32,7 @@ class _StartScreenState extends State<StartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -41,7 +42,7 @@ class _StartScreenState extends State<StartScreen> {
             const Spacer(),
             const Icon(Icons.chat_bubble_outline, size: 96),
             const SizedBox(height: 16),
-            Text('My Chatbot', style: Theme.of(context).textTheme.headlineMedium),
+            Text('AIBuddy', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
             Text('Welcome! Sign in to start chatting.', style: Theme.of(context).textTheme.bodyMedium),
             const Spacer(),
