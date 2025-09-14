@@ -6,6 +6,7 @@ import adminRouter from './routes/admin.route'
 import consentRoutes from "./routes/consent.routes";
 import usageRoutes from "./routes/usagelog.routes";
 import notificationRouter from "./routes/notification.route"
+import "./jobs/notification.job";
 
 const app = express();
 
