@@ -22,7 +22,7 @@ class NotificationService {
 
   static Future<void> sendTokenToBackend(String token) async {
     final response = await http.post(
-      Uri.parse('http://192.168.1.5:8000/api/v1/notification'),
+      Uri.parse('http://10.6.192.157:8000/api/v1/notification'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({"token": token}),
     );

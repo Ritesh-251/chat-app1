@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
     startChatWithMessage,
+    startChatWithStreamingMessage,
+    sendStreamingMessage,
     getUserChats,
     getChatById,
     getMostRecentChat,
@@ -142,5 +144,21 @@ router.post("/:chatId/restore", jwtVerification, restoreChat);
  * @query   days?: number (default: 30 days)
  */
 router.post("/auto-archive", jwtVerification, autoArchiveOldChats);
+
+/**
+ * @route   POST /api/chat/start-streaming
+ * @desc    Start new chat with first message and stream AI response via WebSocket
+ * @access  Private (requires authentication)
+ * @body    message: string
+ */
+router.post("/start-streaming", jwtVerification, startChatWithStreamingMessage);
+
+/**
+ * @route   POST /api/chat/send-streaming
+ * @desc    Send message to existing chat and stream AI response via WebSocket
+ * @access  Private (requires authentication)
+ * @body    chatId: string, message: string
+ */
+router.post("/send-streaming", jwtVerification, sendStreamingMessage);
 
 export default router;

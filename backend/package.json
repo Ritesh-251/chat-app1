@@ -2,6 +2,7 @@
   "dependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/socket.io": "^3.0.2",
     "@types/ws": "^8.18.1",
     "@types/xlsx": "^0.0.36",
     "bcrypt": "^6.0.0",
@@ -13,6 +14,7 @@
     "mongoose": "^8.17.2",
     "node-cron": "^4.2.1",
     "openai": "^5.13.1",
+    "socket.io": "^4.8.1",
     "typescript": "^5.9.2",
     "uuid": "^11.1.0",
     "ws": "^8.18.3",

@@ -7,6 +7,7 @@ class ChatBubble extends StatelessWidget {
   final String? messageId;
   final VoidCallback? onDelete;
   final bool canDelete;
+  final bool isStreaming;
   
   const ChatBubble({
     super.key, 
@@ -15,6 +16,7 @@ class ChatBubble extends StatelessWidget {
     this.messageId,
     this.onDelete,
     this.canDelete = false,
+    this.isStreaming = false,
   });
 
   void _showDeleteOption(BuildContext context) {
@@ -163,7 +165,26 @@ class ChatBubble extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: bg, borderRadius: radius),
-      child: Text(text, style: TextStyle(color: fg)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(text, style: TextStyle(color: fg)),
+          ),
+          // Show typing indicator for streaming messages
+          if (isStreaming && !fromUser) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(fg),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
 
     // Only make user messages deletable and show delete option if canDelete is true

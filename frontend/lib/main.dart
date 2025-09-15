@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+\import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -8,6 +8,10 @@ import 'screens/register_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/consent_screen.dart';
 import 'services/notification_service.dart';
+import 'services/background_service.dart';
+import 'services/auth_service.dart';
+import 'services/api_service.dart';
+import 'services/chat_service.dart';
 
 // Local notifications instance
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -23,6 +27,17 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  
+  // Initialize API and Auth services to restore saved state
+  await ApiService.instance.initialize();
+  await AuthService.instance.initialize();
+  
+  // Initialize Chat service with WebSocket - but only if user is authenticated
+  final currentUser = AuthService.instance.currentUser;
+  if (currentUser != null) {
+    await ChatService.instance.initialize();
+  }
+  
   runApp(const App());
 }
 
@@ -33,11 +48,52 @@ class App extends StatefulWidget {
   State<App> createState() => _AppState();
 }
 
-class _AppState extends State<App> {
+class _AppState extends State<App> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initNotifications();
+    _initBackgroundFetch();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    print("App lifecycle state changed: $state");
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        print("App resumed - back to foreground");
+        BackgroundService.onAppResumed();
+        BackgroundService.performMaintenanceTasks();
+        break;
+      case AppLifecycleState.inactive:
+        print("App inactive");
+        break;
+      case AppLifecycleState.paused:
+        print("App paused - moved to background");
+        BackgroundService.onAppPaused();
+        break;
+      case AppLifecycleState.detached:
+        print("App detached");
+        break;
+      case AppLifecycleState.hidden:
+        print("App hidden");
+        break;
+    }
+  }
+
+  void _initBackgroundFetch() async {
+    // Initialize the background service
+    await BackgroundService.initialize();
+    print('[App] Background service initialized successfully');
   }
 
  void _initNotifications() async {

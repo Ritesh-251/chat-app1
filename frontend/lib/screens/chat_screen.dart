@@ -19,10 +19,12 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
+  final _scrollController = ScrollController(); // Add scroll controller
   final _chatService = ChatService.instance;
   bool _isLoading = false;
   bool _isConnected = true;
   final Map<String, bool> _messageCanDelete = {}; // Track which messages can be deleted
+  String _currentStreamingText = ''; // Track streaming AI response
 
   bool _appUsageConsent = false;
 
@@ -30,7 +32,49 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _initializeChat();
+    _setupStreamingListeners();
     _sendUsageLogsIfConsented();
+  }
+
+  /// Setup listeners for WebSocket streaming
+  void _setupStreamingListeners() {
+    // Listen to streaming messages
+    _chatService.streamingMessageStream.listen((streamingText) {
+      if (mounted) {
+        setState(() {
+          _currentStreamingText = streamingText;
+        });
+        // Auto-scroll to bottom as text streams in
+        _scrollToBottom();
+      }
+    });
+    
+    // Listen to messages updates
+    _chatService.messagesStream.listen((messages) {
+      if (mounted) {
+        setState(() {
+          // Messages list updated, rebuild UI
+        });
+        // Auto-scroll when new messages are added
+        _scrollToBottom();
+      }
+    });
+  }
+
+  /// Auto-scroll to bottom of chat
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      // Add a small delay to ensure the UI has updated
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
   }
 
   Future<void> _sendUsageLogsIfConsented() async {
@@ -120,6 +164,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeChat() async {
+    // Initialize chat service with WebSocket
+    await _chatService.initialize();
+    
     // Try to load recent chat (like ChatGPT)
     final hasRecentChat = await _chatService.loadRecentChat();
     if (mounted) {
@@ -146,6 +193,9 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           // UI will rebuild and show updated messages from ChatService
         });
+        
+        // Auto-scroll to show new message
+        _scrollToBottom();
         
         // Check deletion eligibility for new messages
         _checkMessageDeletionEligibility();
@@ -368,19 +418,36 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   )
                 : ListView.builder(
+                    controller: _scrollController, // Add scroll controller
                     padding: const EdgeInsets.all(12),
-                    itemCount: messages.length,
+                    itemCount: messages.length + (_chatService.isStreaming ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      final canDelete = _messageCanDelete[msg.id] ?? false;
+                      // Show regular messages
+                      if (index < messages.length) {
+                        final msg = messages[index];
+                        final canDelete = _messageCanDelete[msg.id] ?? false;
+                        
+                        return ChatBubble(
+                          text: msg.text, 
+                          fromUser: msg.isFromUser,
+                          messageId: msg.id,
+                          canDelete: canDelete,
+                          onDelete: canDelete ? () => _deleteMessage(msg.id) : null,
+                        );
+                      }
                       
-                      return ChatBubble(
-                        text: msg.text, 
-                        fromUser: msg.isFromUser,
-                        messageId: msg.id,
-                        canDelete: canDelete,
-                        onDelete: canDelete ? () => _deleteMessage(msg.id) : null,
-                      );
+                      // Show streaming AI message
+                      else if (_chatService.isStreaming) {
+                        return ChatBubble(
+                          text: _currentStreamingText.isEmpty ? '🤔 Thinking...' : _currentStreamingText,
+                          fromUser: false,
+                          messageId: 'streaming',
+                          canDelete: false,
+                          isStreaming: true,
+                        );
+                      }
+                      
+                      return const SizedBox.shrink();
                     },
                   ),
           ),
@@ -404,5 +471,12 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 }

@@ -5,7 +5,7 @@
  * Run this to test the chat app with OpenAI responses
  */
 
-const BASE_URL = 'http://localhost:8000/api/v1';
+const BASE_URL = 'http://1.6.141.243/api/v1';
 
 // Helper function to make API requests
 async function makeRequest(endpoint, method = 'GET', body = null, token = null) {
