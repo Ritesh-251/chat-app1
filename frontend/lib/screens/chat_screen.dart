@@ -326,8 +326,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
             // Send button
             Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF3E6C42), // Using your app's green theme
+              decoration: BoxDecoration(
+                color: Colors.green.shade700, // Using your app's green theme
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -350,65 +350,61 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final messages = _chatService.messages;
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _chatService.currentChatTitle ?? 'AI Chat Assistant',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (!_isConnected)
-              const Icon(Icons.cloud_off, color: Colors.orange, size: 20),
-            if (_isConnected)
-              const Icon(Icons.cloud_done, color: Colors.green, size: 20),
+ @override
+Widget build(BuildContext context) {
+  final messages = _chatService.messages;
+
+  return Scaffold(
+    extendBodyBehindAppBar: true,
+    appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      title: Text(
+        _chatService.currentChatTitle ?? 'AI Chat Assistant',
+        style: const TextStyle(color: Colors.white),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: _initializeChat,
+        ),
+        IconButton(
+          icon: const Icon(Icons.add, color: Colors.white),
+          onPressed: _startNewChat,
+          tooltip: 'New Chat',
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout, color: Colors.white),
+          onPressed: () async {
+            await AuthService.instance.signOut();
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, LoginScreen.route);
+            }
+          },
+        )
+      ],
+    ),
+    drawer: ChatHistoryDrawer(
+      onChatSelected: _switchToChat,
+      onNewChat: _startNewChat,
+      onChatDeleted: _onChatDeleted,
+    ),
+    body: Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          colors: [
+            Colors.green.shade700,
+            Colors.green.shade300,
+            Colors.limeAccent.shade400,
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _initializeChat,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _startNewChat,
-            tooltip: 'New Chat',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await AuthService.instance.signOut();
-              if (mounted) Navigator.pushReplacementNamed(context, LoginScreen.route);
-            },
-          )
-        ],
       ),
-      drawer: ChatHistoryDrawer(
-        onChatSelected: _switchToChat,
-        onNewChat: _startNewChat,
-        onChatDeleted: _onChatDeleted,
-      ),
-      body: Column(
+      child: Column(
         children: [
-          if (!_isConnected)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              color: Colors.orange.shade100,
-              child: const Text(
-                'Backend server not reachable. Messages will fail until server is running.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.orange),
-              ),
-            ),
+          const SizedBox(height: 100), // Push down for AppBar
           Expanded(
+
             child: messages.isEmpty
                 ? const Center(
                     child: Text(
@@ -456,20 +452,75 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: EdgeInsets.all(8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+
                 children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                  if (!_isConnected)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(8),
+                      color: Colors.orange.shade100,
+                      child: const Text(
+                        'Backend server not reachable. Messages will fail until server is running.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.orange),
+                      ),
+                    ),
+                  Expanded(
+                    child: messages.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Start a conversation with your AI assistant!\nType a message below to begin.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(12),
+                            itemCount: messages.length,
+                            itemBuilder: (context, index) {
+                              final msg = messages[index];
+                              final canDelete =
+                                  _messageCanDelete[msg.id] ?? false;
+
+                              return ChatBubble(
+                                text: msg.text,
+                                fromUser: msg.isFromUser,
+                                messageId: msg.id,
+                                canDelete: canDelete,
+                                onDelete: canDelete
+                                    ? () => _deleteMessage(msg.id)
+                                    : null,
+                              );
+                            },
+                          ),
                   ),
-                  SizedBox(width: 8),
-                  Text('AI is thinking...'),
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 8),
+                          Text('AI is thinking...'),
+                        ],
+                      ),
+                    ),
+                  _buildChatInputBar(),
                 ],
               ),
             ),
-          _buildChatInputBar(),
+          ),
         ],
       ),
+
     );
   }
 
@@ -479,4 +530,5 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.dispose();
     super.dispose();
   }
+
 }

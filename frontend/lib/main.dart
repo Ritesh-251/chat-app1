@@ -8,10 +8,12 @@ import 'screens/register_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/consent_screen.dart';
 import 'services/notification_service.dart';
+
 import 'services/background_service.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
 import 'services/chat_service.dart';
+
 
 // Local notifications instance
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -144,8 +146,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Chatbot App',
+      title: 'Sathi',
       theme: ThemeData(
+        textTheme: GoogleFonts.poppinsTextTheme(),
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32)),
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
@@ -160,6 +163,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         LoginScreen.route: (_) => const LoginScreen(),
         ConsentScreen.route: (_) => ConsentScreen(),
         RegisterScreen.route: (_) => const RegisterScreen(),
+        ChatbotProfileScreen.route: (_) => const ChatbotProfileScreen(),
         ChatScreen.route: (_) => const ChatScreen(),
       },
     );
