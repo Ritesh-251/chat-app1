@@ -8,6 +8,8 @@ class ChatBubble extends StatelessWidget {
   final VoidCallback? onDelete;
   final bool canDelete;
 
+  final bool isStreaming;
+  
   const ChatBubble({
     super.key,
     required this.text,
@@ -15,6 +17,7 @@ class ChatBubble extends StatelessWidget {
     this.messageId,
     this.onDelete,
     this.canDelete = false,
+    this.isStreaming = false,
   });
 
   void _showDeleteOption(BuildContext context) {
@@ -136,36 +139,30 @@ class ChatBubble extends StatelessWidget {
     Widget bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      constraints: const BoxConstraints(maxWidth: 280),
-      decoration: BoxDecoration(
-        gradient: fromUser
-            ? LinearGradient(
-                colors: [
-                  Colors.green.shade700,
-                  Colors.green.shade700,
-                  Colors.green.shade300,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-        color: fromUser ? null : Colors.grey.shade200,
-        borderRadius: radius,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 6,
-            offset: const Offset(2, 2),
-          )
+
+
+      decoration: BoxDecoration(color: bg, borderRadius: radius),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(text, style: TextStyle(color: fg)),
+          ),
+          // Show typing indicator for streaming messages
+          if (isStreaming && !fromUser) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(fg),
+              ),
+            ),
+          ],
         ],
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: fromUser ? Colors.white : Colors.black87,
-          fontSize: 14,
-        ),
-      ),
+
     );
 
     if (fromUser && canDelete && onDelete != null) {

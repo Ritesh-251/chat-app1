@@ -19,7 +19,7 @@ export interface AnalyticsResponse {
 }
 
 // API configuration and admin authentication services
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://10.44.1.163:8000/api/v1';
 
 console.log('🔧 API Configuration:');
 console.log('VITE_API_URL from env:', import.meta.env.VITE_API_URL);

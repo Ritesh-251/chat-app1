@@ -3,7 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/Apierror";
 import Chat from "../models/chat.model";
 import { Types } from "mongoose";
-import { generateAIResponse } from "../services/openai.service";
+import { generateAIResponse, generateAIResponseStream } from "../services/openai.service";
 
 /**
   Prevent token limit issues while maintaining context
@@ -804,3 +804,193 @@ export const restoreChat = asyncHandler(async (req: Request, res: Response) => {
         }
     });
 });
+
+/**
+ * START CHAT WITH STREAMING MESSAGE (WebSocket Version)
+ * Purpose: Create chat and send first message with real-time AI response
+ */
+export const startChatWithStreamingMessage = asyncHandler(async (req: Request, res: Response) => {
+    const { message } = req.body;
+    const userId = (req as any).user._id;
+
+    // Validate inputs
+    if (!userId) {
+        throw new ApiError(401, "User authentication required");
+    }
+
+    if (!message || message.trim().length === 0) {
+        throw new ApiError(400, "Message is required");
+    }
+
+    // Generate title quickly (non-streaming)
+    const titlePrompt = `Generate a very short title (max 6 words) summarizing this message:\n"${message}"`;
+    let autoTitle: string;
+
+    try {
+        autoTitle = await generateAIResponse([{ role: "user", content: titlePrompt }]);
+    } catch (error) {
+        console.warn("Title generation failed, using fallback");
+        autoTitle = `Chat ${new Date().toLocaleDateString()}`;
+    }
+
+    // Create new chat
+    const newChat = new Chat({
+        userId: userId,
+        title: autoTitle.replace(/['"]/g, '').substring(0, 50), // Clean title
+        messages: [{
+            role: 'user',
+            content: message.trim(),
+            timestamp: new Date()
+        }],
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+    });
+
+    await newChat.save();
+
+    // Return chat info immediately
+    res.status(201).json({
+        success: true,
+        message: "Chat started, AI response streaming via WebSocket",
+        data: {
+            chatId: newChat._id,
+            title: newChat.title,
+            userMessage: message.trim()
+        }
+    });
+
+    // Stream AI response via WebSocket
+    streamAIResponse((newChat._id as any).toString(), message.trim(), userId.toString());
+});
+
+/**
+ * SEND MESSAGE WITH STREAMING (WebSocket Version)
+ * Purpose: Add message to existing chat with real-time AI response
+ */
+export const sendStreamingMessage = asyncHandler(async (req: Request, res: Response) => {
+    const { chatId, message } = req.body;
+    const userId = (req as any).user._id;
+
+    // Validate inputs
+    if (!userId) {
+        throw new ApiError(401, "User authentication required");
+    }
+
+    if (!chatId || !Types.ObjectId.isValid(chatId)) {
+        throw new ApiError(400, "Valid chat ID is required");
+    }
+
+    if (!message || message.trim().length === 0) {
+        throw new ApiError(400, "Message is required");
+    }
+
+    // Find and validate chat
+    const chat = await Chat.findOne({ _id: chatId, userId: userId });
+    if (!chat) {
+        throw new ApiError(404, "Chat not found");
+    }
+
+    // Add user message
+    chat.messages.push({
+        role: 'user',
+        content: message.trim(),
+        timestamp: new Date()
+    });
+
+    chat.updatedAt = new Date();
+    await chat.save();
+
+    // Return acknowledgment immediately
+    res.status(200).json({
+        success: true,
+        message: "Message sent, AI response streaming via WebSocket",
+        data: {
+            chatId: chat._id,
+            userMessage: message.trim(),
+            messageCount: chat.messages.length
+        }
+    });
+
+    // Stream AI response via WebSocket
+    streamAIResponse(chatId, message.trim(), userId.toString(), chat);
+});
+
+/**
+ * Stream AI response via WebSocket
+ * @param chatId - Chat ID
+ * @param userMessage - User's message
+ * @param userId - User ID
+ * @param existingChat - Existing chat (optional, for context)
+ */
+async function streamAIResponse(chatId: string, userMessage: string, userId: string, existingChat?: any) {
+    try {
+        const socketService = (global as any).socketService;
+        if (!socketService) {
+            console.error('❌ Socket service not available');
+            return;
+        }
+
+        // Get chat context if not provided
+        const chat = existingChat || await Chat.findById(chatId);
+        if (!chat) {
+            console.error('❌ Chat not found for streaming');
+            return;
+        }
+
+        // Prepare conversation history
+        const conversationHistory = truncateConversationHistory(
+            chat.messages.map((msg: any) => ({
+                role: msg.role,
+                content: msg.content
+            }))
+        );
+
+        // Start streaming
+        console.log(`🚀 Starting AI response stream for chat: ${chatId}`);
+        
+        const stream = await generateAIResponseStream(conversationHistory, userId);
+        let fullResponse = '';
+
+        // Process stream chunks
+        const streamResponse = stream as any;
+        for await (const chunk of streamResponse) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+                fullResponse += content;
+                
+                // Send chunk via WebSocket
+                socketService.emitAIResponseChunk(chatId, content, false);
+            }
+        }
+
+        // Stop AI typing indicator
+        socketService.stopAITyping(chatId);
+
+        // Save complete response to database
+        if (fullResponse.trim()) {
+            chat.messages.push({
+                role: 'assistant',
+                content: fullResponse.trim(),
+                timestamp: new Date()
+            });
+            
+            chat.updatedAt = new Date();
+            await chat.save();
+
+            // Send complete response notification
+            socketService.emitAIResponse(chatId, fullResponse.trim(), Date.now().toString());
+        }
+
+        console.log(`✅ AI response stream completed for chat: ${chatId}`);
+
+    } catch (error) {
+        console.error('❌ Error streaming AI response:', error);
+        
+        const socketService = (global as any).socketService;
+        if (socketService) {
+            socketService.stopAITyping(chatId);
+            socketService.emitAIResponseChunk(chatId, 'Sorry, I encountered an error while generating a response. Please try again.', true);
+        }
+    }
+}

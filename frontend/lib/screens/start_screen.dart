@@ -17,9 +17,14 @@ class _StartScreenState extends State<StartScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Check for existing authentication immediately
+    _checkExistingAuth();
+    
+    // Listen for auth changes
     AuthService.instance.authChanges.listen((user) async {
       if (mounted && user != null) {
-  final consent = await ConsentService.instance.getConsent();
+        final consent = await ConsentService.instance.getConsent();
         if (consent != null) {
           Navigator.pushReplacementNamed(context, ChatScreen.route);
         } else {
@@ -27,6 +32,21 @@ class _StartScreenState extends State<StartScreen> {
         }
       }
     });
+  }
+
+  Future<void> _checkExistingAuth() async {
+    // Small delay to ensure auth service initialization is complete
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    final currentUser = AuthService.instance.currentUser;
+    if (mounted && currentUser != null) {
+      final consent = await ConsentService.instance.getConsent();
+      if (consent != null) {
+        Navigator.pushReplacementNamed(context, ChatScreen.route);
+      } else {
+        Navigator.pushReplacementNamed(context, ConsentScreen.route);
+      }
+    }
   }
 
   @override

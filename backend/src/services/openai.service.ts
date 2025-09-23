@@ -12,7 +12,7 @@ const DEFAULT_TEMPERATURE = parseFloat(process.env.OPENAI_TEMPERATURE || '0.2');
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || 'You are a helpful academic assistant for students. Provide clear, educational responses.';
 
 /**
- * Generate AI response for academic chat
+ * Generate AI response for academic chat (original function - for backward compatibility)
  * @param messages - Array of conversation messages
  * @param userId - User ID for logging/research purposes
  * @returns AI response text
@@ -41,9 +41,7 @@ export async function generateAIResponse(
       max_tokens: 1000, // Reasonable limit for academic responses
     };
 
-
     // Call OpenAI API
-
     const completion = await openai.chat.completions.create(requestParams);
 
     // Extract response
