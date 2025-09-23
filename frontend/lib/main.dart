@@ -8,6 +8,9 @@ import 'screens/register_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/consent_screen.dart';
 import 'services/notification_service.dart';
+import 'screens/chatbot_profile.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 
 // Local notifications instance
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -88,8 +91,9 @@ class _AppState extends State<App> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Chatbot App',
+      title: 'Sathi',
       theme: ThemeData(
+        textTheme: GoogleFonts.poppinsTextTheme(),
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32)),
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
@@ -104,6 +108,7 @@ class _AppState extends State<App> {
         LoginScreen.route: (_) => const LoginScreen(),
         ConsentScreen.route: (_) => ConsentScreen(),
         RegisterScreen.route: (_) => const RegisterScreen(),
+        ChatbotProfileScreen.route: (_) => const ChatbotProfileScreen(),
         ChatScreen.route: (_) => const ChatScreen(),
       },
     );

@@ -1,3 +1,5 @@
+import 'package:chat_app1/screens/chatbot_profile.dart';
+
 import '../services/consent_service.dart';
 import '../services/app_usage_service.dart';
 import '../services/usage_service.dart';
@@ -148,7 +150,7 @@ class _ConsentScreenState extends State<ConsentScreen>
         }
       }
 
-      if (mounted) Navigator.pushReplacementNamed(context, '/chat');
+      if (mounted) Navigator.pushReplacementNamed(context, ChatbotProfileScreen.route);
     } catch (e) {
       print('Error submitting consent: $e');
     }

@@ -247,45 +247,58 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
         children: [
           // Custom Header with green theme
           Container(
-            height: 140, // Increased height to prevent overflow
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: Color(0xFF3E6C42), // dark green
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), // Adjusted padding
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    const Icon(
-                      Icons.chat_bubble_outline,
-                      color: Colors.white,
-                      size: 28, // Slightly smaller icon
-                    ),
-                    const SizedBox(height: 0.3), // Reduced spacing
-                    const Text(
-                      'Chat History',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18, // Slightly smaller font
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(
-                      'Your conversations',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13, // Slightly smaller font
-                      ),
-                    ),
+              height: 131.3,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.green.shade700,
+                    Colors.green.shade300,
+                    Colors.green.shade700,
                   ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const Icon(
+                        Icons.chat_bubble_outline,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Chat History',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      /*const Text(
+                        'Your conversations',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),*/
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          
+
+                      
           // New Chat Button
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -303,12 +316,12 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3E6C42),
+                backgroundColor: Colors.green,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(50), // match ChatScreen input button
                 ),
-                elevation: 2,
+                elevation: 4,
               ),
             ),
           ),
@@ -328,7 +341,7 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
                           children: [
                             Icon(
                               Icons.chat_bubble_outline,
-                              size: 60,
+                              size: 45,
                               color: Colors.grey.shade500,
                             ),
                             const SizedBox(height: 12),
@@ -366,16 +379,22 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
                                 horizontal: 8,
                                 vertical: 3,
                               ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                color: isCurrentChat
-                                    ? const Color(0xFF3E6C42).withOpacity(0.1)
-                                    : Colors.white,
+                               decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 6,
+                                        offset: const Offset(2, 2),
+                                      ),
+                                    ],
                                 border: isCurrentChat
                                     ? Border.all(
-                                        color: const Color(0xFF3E6C42),
+                                        color: Colors.green.shade700,
                                         width: 2,
                                       )
+                                      //second border all removed in new code
                                     : Border.all(
                                         color: Colors.grey.shade200,
                                         width: 1,
@@ -392,27 +411,23 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
                                     vertical: 8,
                                   ),
                                   leading: CircleAvatar(
-                                    backgroundColor: isCurrentChat
-                                        ? const Color(0xFF3E6C42)
-                                        : Colors.grey.shade300,
-                                    child: Icon(
-                                      Icons.chat,
-                                      color: isCurrentChat
-                                          ? Colors.white
-                                          : Colors.grey.shade600,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    chat.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    backgroundColor: isCurrentChat ? Colors.green.shade700 : Colors.grey.shade300,
+                                child: Icon(
+                                  Icons.chat,
+                                  color: isCurrentChat ? Colors.white : Colors.grey.shade600,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                chat.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontWeight: isCurrentChat
                                           ? FontWeight.bold
                                           : FontWeight.w500,
                                       color: isCurrentChat
-                                          ? const Color(0xFF3E6C42)
+                                          ? Colors.green.shade700
                                           : Colors.grey.shade800,
                                     ),
                                   ),
@@ -450,7 +465,7 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
                                   trailing: isCurrentChat
                                       ? const Icon(
                                           Icons.check_circle,
-                                          color: Color(0xFF3E6C42),
+                                          color: Colors.green,
                                           size: 20,
                                         )
                                       : null,

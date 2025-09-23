@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:animate_do/animate_do.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
-import '../services/consent_service.dart'; // 👈 add this
-import '../widgets/primary_button.dart';
-import '../widgets/text_field.dart';
+import '../services/consent_service.dart';
 import 'chat_screen.dart';
 import 'register_screen.dart';
-import 'consent_screen.dart'; // 👈 import ConsentScreen
+import 'consent_screen.dart';
+import 'chatbot_profile.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
+  bool _obscurePassword = true; // 👈 toggle state
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -33,15 +34,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         if (result['success'] == true) {
-            // Only check consent if token is set and user is authenticated
-            if (result['user'] != null && ApiService.instance.headers['Authorization'] != null) {
-              final consent = await ConsentService.instance.getConsent();
-              if (consent != null) {
-                Navigator.pushReplacementNamed(context, ChatScreen.route);
-              } else {
-                Navigator.pushReplacementNamed(context, ConsentScreen.route);
-              }
+          if (result['user'] != null &&
+              ApiService.instance.headers['Authorization'] != null) {
+            final consent = await ConsentService.instance.getConsent();
+            if (consent != null) {
+                //yet to add conditioning for existing user who has already selected chatbot profile
+              Navigator.pushReplacementNamed(context, ChatbotProfileScreen.route);
+            } else {
+              Navigator.pushReplacementNamed(context, ConsentScreen.route);
             }
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(result['message'] ?? 'Login failed')),
@@ -62,36 +64,215 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              LabeledField(
-                label: 'Email',
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) => v!.contains('@') ? null : 'Enter valid email',
-              ),
-              const SizedBox(height: 16),
-              LabeledField(
-                label: 'Password',
-                controller: _password,
-                obscure: true,
-                validator: (v) => v!.length >= 6 ? null : 'Min 6 chars',
-              ),
-              const SizedBox(height: 9),
-              PrimaryButton(label: 'Login', onPressed: _login, loading: _loading),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, RegisterScreen.route),
-                child: const Text('No account? Register'),
-              ),
+      body: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            colors: [
+              Colors.green.shade700,
+              Colors.green.shade300,
+              Colors.limeAccent.shade400,
             ],
           ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const SizedBox(height: 80),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 1000),
+                    child: const Text(
+                      "Login",
+                      style: TextStyle(color: Colors.white, fontSize: 40),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 1300),
+                    child: const Text(
+                      "Welcome to Sathi!",
+                      style: TextStyle(color: Colors.white, fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(60),
+                    topRight: Radius.circular(60),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(30),
+                  child: SingleChildScrollView(
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: <Widget>[
+                          const SizedBox(height: 60),
+                          FadeInUp(
+                            duration: const Duration(milliseconds: 1400),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        const Color.fromARGB(77, 151, 232, 29),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  )
+                                ],
+                              ),
+                              child: Column(
+                                children: <Widget>[
+                                  // Email field
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Colors.grey.shade200,
+                                        ),
+                                      ),
+                                    ),
+                                    child: TextFormField(
+                                      controller: _email,
+                                      keyboardType: TextInputType.emailAddress,
+                                      validator: (v) => v!.contains('@')
+                                          ? null
+                                          : 'Enter valid email',
+                                      decoration: InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.email_outlined,
+                                          color: Colors.grey.shade400,
+                                          size: 17,
+                                        ),
+                                        hintText: "Email",
+                                        hintStyle:
+                                            const TextStyle(color: Colors.grey),
+                                        border: InputBorder.none,
+                                      ),
+                                    ),
+                                  ),
+                                  // Password field with show/hide toggle
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Colors.grey.shade200,
+                                        ),
+                                      ),
+                                    ),
+                                    child: TextFormField(
+                                      controller: _password,
+                                      obscureText: _obscurePassword,
+                                      validator: (v) => v!.length >= 10
+                                          ? null
+                                          : 'Min 10 chars',
+                                      decoration: InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.lock_outline,
+                                          color: Colors.grey.shade400,
+                                          size: 17,
+                                        ),
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            _obscurePassword
+                                                ? Icons.visibility_off
+                                                : Icons.visibility,
+                                            color: _obscurePassword
+                                                ? Colors.grey.shade400
+                                                : Colors.green,
+                                            size: 20,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _obscurePassword =
+                                                  !_obscurePassword;
+                                            });
+                                          },
+                                        ),
+                                        hintText: "Password",
+                                        hintStyle:
+                                            const TextStyle(color: Colors.grey),
+                                        border: InputBorder.none,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                          FadeInUp(
+                            duration: const Duration(milliseconds: 1500),
+                            child: Text(
+                              "Forgot Password?",
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                          FadeInUp(
+                            duration: const Duration(milliseconds: 1600),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _loading ? null : _login,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(50),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 16),
+                                ),
+                                child: _loading
+                                    ? const CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
+                                      )
+                                    : const Text(
+                                        "Login",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+                          FadeInUp(
+                            duration: const Duration(milliseconds: 1700),
+                            child: TextButton(
+                              onPressed: () => Navigator.pushReplacementNamed(
+                                  context, RegisterScreen.route),
+                              child: const Text('No account? Register'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
