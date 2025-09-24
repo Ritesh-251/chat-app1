@@ -98,10 +98,13 @@ buildlog.txt
 pubspec.lock
 **/generated_plugin_registrant.dart
 
-# Firebase related (keep these commented if you want to include them)
-# **/android/app/google-services.json
-# **/ios/Runner/GoogleService-Info.plist
-# **/ios/firebase_app_id_file.json
+# Firebase related - SECURITY: Always ignore these files containing API keys
+**/android/app/google-services.json
+**/ios/Runner/GoogleService-Info.plist
+**/ios/firebase_app_id_file.json
+**/web/firebase-config.js
+firebase-debug.log
+.firebase/
 
 # ===============================
 # TYPESCRIPT/NODE.JS BACKEND IGNORES
@@ -266,3 +269,5 @@ temp/
 config.local.json
 auth.json
 backend/src/serviceAccountKey.json
+**/serviceAccountKey.json
+**/firebase-adminsdk-*.json

@@ -27,24 +27,32 @@ CORE PRINCIPLES:
 1) Empathize a specific detail first.
 2) Ask curious and varied follow-up questions.
 3) Respect agency: offer choices, no pressure.
-4) Mirror user tone (emoji/Hinglish).
-5) Rotate hooks and keep variety.
+4) Mirror user tone (emoji/Hinglish).`;
 
-Always avoid:
-- Explicit sexual content
-- Illegal/harmful instructions
-- Medical/legal/financial advice
-- Therapy or crisis counseling (instead, redirect gently).`;
+// System prompt for App2 (Lite version)
+const LITE_SYSTEM_PROMPT = process.env.SYSTEM_PROMPT_LITE || 'You are a helpful AI assistant. Provide clear, concise, and helpful responses to user questions. Keep your answers simple and easy to understand. Be friendly but professional.';
+
+// Function to get system prompt based on app
+const getSystemPrompt = (appId: string = 'app1'): string => {
+  if (appId === 'app2') {
+    console.log('🔹 Using LITE system prompt for App2');
+    return LITE_SYSTEM_PROMPT;
+  }
+  console.log('🔸 Using FULL system prompt for App1');
+  return DEFAULT_SYSTEM_PROMPT;
+};
 
 /**
  * Generate AI response for academic chat with personalized system prompt
  * @param messages - Array of conversation messages
  * @param userId - User ID for personalized system prompt (optional for backward compatibility)
+ * @param appId - App ID to determine which system prompt to use
  * @returns AI response text
  */
 export async function generateAIResponse(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-  userId?: string
+  userId?: string,
+  appId?: string
 ): Promise<string> {
   try {
     // Validate API key
@@ -52,14 +60,17 @@ export async function generateAIResponse(
       throw new ApiError(500, "OpenAI API key not configured");
     }
 
-    // Get personalized system prompt or use default
-    let systemPrompt = DEFAULT_SYSTEM_PROMPT;
-    if (userId) {
+    // Get system prompt based on app type
+    let systemPrompt = getSystemPrompt(appId);
+    
+    // For App1 (full version), try to get personalized system prompt if userId provided
+    if (appId === 'app1' && userId) {
       try {
         systemPrompt = await systemPromptService.generateSystemPrompt(userId);
+        console.log('🎯 Using personalized system prompt for App1 user:', userId);
       } catch (error) {
-        console.warn(`Failed to get personalized system prompt for user ${userId}, using default:`, error);
-        // Continue with default system prompt
+        console.warn(`Failed to get personalized system prompt for user ${userId}, using default App1 prompt:`, error);
+        systemPrompt = getSystemPrompt('app1'); // Fallback to App1 default
       }
     }
 
@@ -109,25 +120,30 @@ export async function generateAIResponse(
  * Generate AI response with streaming and personalized system prompt
  * @param messages - Array of conversation messages
  * @param userId - User ID for personalized system prompt
+ * @param appId - App ID to determine which system prompt to use
  * @returns Stream of AI response chunks
  */
 export async function generateAIResponseStream(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-  userId?: string
+  userId?: string,
+  appId?: string
 ) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       throw new ApiError(500, "OpenAI API key not configured");
     }
 
-    // Get personalized system prompt or use default
-    let systemPrompt = DEFAULT_SYSTEM_PROMPT;
-    if (userId) {
+    // Get system prompt based on app type
+    let systemPrompt = getSystemPrompt(appId);
+    
+    // For App1 (full version), try to get personalized system prompt if userId provided
+    if (appId === 'app1' && userId) {
       try {
         systemPrompt = await systemPromptService.generateSystemPrompt(userId);
+        console.log('🎯 Using personalized system prompt for App1 streaming user:', userId);
       } catch (error) {
-        console.warn(`Failed to get personalized system prompt for user ${userId}, using default:`, error);
-        // Continue with default system prompt
+        console.warn(`Failed to get personalized system prompt for user ${userId}, using default App1 prompt:`, error);
+        systemPrompt = getSystemPrompt('app1'); // Fallback to App1 default
       }
     }
 

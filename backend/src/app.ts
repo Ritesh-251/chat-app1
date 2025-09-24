@@ -7,6 +7,7 @@ import consentRoutes from "./routes/consent.routes";
 import usageRoutes from "./routes/usagelog.routes";
 import notificationRouter from "./routes/notification.route";
 import chatbotRoutes from "./routes/chatbot.routes";
+import { databaseMiddleware } from './middleware/database.middleware';
 import "./jobs/notification.job";
 
 const app = express();
@@ -15,12 +16,23 @@ app.use(cors({
   origin: true, // Allow all origins for development
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-App-ID'],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
+
+// Middleware to detect app type and set database
+app.use((req, res, next) => {
+  const appId = req.headers['x-app-id'] as string || 'app1';
+  req.appId = appId; // Add appId to request object
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Database middleware - must come after appId is set
+app.use(databaseMiddleware);
 
 // API Routes
 app.use('/api/v1/user', userRouter);

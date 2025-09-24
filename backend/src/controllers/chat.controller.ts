@@ -861,8 +861,8 @@ export const startChatWithStreamingMessage = asyncHandler(async (req: Request, r
         }
     });
 
-    // Stream AI response via WebSocket
-    streamAIResponse((newChat._id as any).toString(), message.trim(), userId.toString());
+    // Stream AI response via WebSocket with app-specific prompt
+    streamAIResponse((newChat._id as any).toString(), message.trim(), userId.toString(), undefined, req.appId);
 });
 
 /**
@@ -913,8 +913,8 @@ export const sendStreamingMessage = asyncHandler(async (req: Request, res: Respo
         }
     });
 
-    // Stream AI response via WebSocket
-    streamAIResponse(chatId, message.trim(), userId.toString(), chat);
+    // Stream AI response via WebSocket with app-specific prompt
+    streamAIResponse(chatId, message.trim(), userId.toString(), chat, req.appId);
 });
 
 /**
@@ -923,8 +923,9 @@ export const sendStreamingMessage = asyncHandler(async (req: Request, res: Respo
  * @param userMessage - User's message
  * @param userId - User ID
  * @param existingChat - Existing chat (optional, for context)
+ * @param appId - App ID to determine system prompt
  */
-async function streamAIResponse(chatId: string, userMessage: string, userId: string, existingChat?: any) {
+async function streamAIResponse(chatId: string, userMessage: string, userId: string, existingChat?: any, appId?: string) {
     try {
         const socketService = (global as any).socketService;
         if (!socketService) {
@@ -950,10 +951,10 @@ async function streamAIResponse(chatId: string, userMessage: string, userId: str
         // Start AI typing indicator
         socketService.startAITyping(chatId);
 
-        // Start streaming
-        console.log(`🚀 Starting AI response stream for chat: ${chatId}`);
+        // Start streaming with app-specific system prompt
+        console.log(`🚀 Starting AI response stream for chat: ${chatId}, app: ${appId}`);
         
-        const stream = await generateAIResponseStream(conversationHistory, userId);
+        const stream = await generateAIResponseStream(conversationHistory, userId, appId);
         let fullResponse = '';
 
         // Process stream chunks - send each delta immediately
