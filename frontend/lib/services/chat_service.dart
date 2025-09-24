@@ -93,6 +93,12 @@ class ChatService {
 
   /// Initialize chat service and WebSocket
   Future<void> initialize() async {
+    // Avoid multiple initializations
+    if (_webSocketService.isConnected && _listenersSetup) {
+      print('🔄 ChatService already initialized, skipping...');
+      return;
+    }
+    
     await _webSocketService.initialize();
     if (!_listenersSetup) {
       _setupStreamingListeners();
@@ -100,14 +106,30 @@ class ChatService {
     }
   }
 
-  /// Setup WebSocket streaming listeners
+  /// Reinitialize connection (for refresh button)
+  Future<void> reinitialize() async {
+    print('🔄 Reinitializing ChatService...');
+    await _webSocketService.disconnect();
+    _listenersSetup = false;
+    await initialize();
+  }
+
+  /// Setup WebSocket streaming listeners (only once)
   void _setupStreamingListeners() {
+    print('🎧 Setting up streaming listeners...');
+    
     // Listen for AI response chunks
     _webSocketService.aiResponseStream.listen((chunk) {
-      print('📨 Received chunk: "$chunk"');
-      // Just append the new chunk, don't accumulate
-      _currentStreamingMessage += chunk;
-      _streamingController.add(_currentStreamingMessage);
+      print('📨 Received chunk: "$chunk" (current: "${_currentStreamingMessage}")');
+      
+      // Only process if we're actively streaming
+      if (_isStreaming && _streamingMessageId != null) {
+        // Accumulate the chunk for the complete message
+        _currentStreamingMessage += chunk;
+        // Emit the FULL message so far (not just the chunk)
+        _streamingController.add(_currentStreamingMessage);
+        print('📤 Emitted accumulated message: "${_currentStreamingMessage}"');
+      }
     });
     
     // Listen for AI response completion
@@ -119,6 +141,8 @@ class ChatService {
   
   /// Finish streaming message and add to chat
   void _finishStreamingMessage(Map<String, dynamic> data) {
+    print('🏁 Finishing streaming message. Current: "${_currentStreamingMessage}", ID: $_streamingMessageId');
+    
     if (_currentStreamingMessage.isNotEmpty && _streamingMessageId != null) {
       // Add the complete AI message to the messages list
       final aiMessage = Message(
@@ -129,11 +153,13 @@ class ChatService {
       
       _messages.add(aiMessage);
       _notifyMessagesChanged();
+      print('✅ Added final message to chat: "${_currentStreamingMessage}"');
     }
     
     // Update chat ID if this was a new chat
     if (data['chatId'] != null) {
       _currentChatId = data['chatId'];
+      print('📍 Updated chat ID: $_currentChatId');
     }
     
     // Reset streaming state
@@ -141,6 +167,7 @@ class ChatService {
     _currentStreamingMessage = '';
     _streamingMessageId = null;
     _streamingController.add(''); // Signal streaming is complete
+    print('🔄 Streaming state reset');
   }
   
   /// Notify listeners that messages have changed
@@ -187,10 +214,10 @@ class ChatService {
   // Send message with real-time streaming
   Future<String> sendMessage(String userMessage) async {
     try {
-      // If we're currently streaming, finish it first
-      if (_isStreaming && _currentStreamingMessage.isNotEmpty) {
-        _finishStreamingMessage({});
-      }
+      // CRITICAL: Reset streaming state completely before new message
+      _isStreaming = false;
+      _currentStreamingMessage = '';
+      _streamingMessageId = null;
       
       // Add user message immediately to UI
       final userMsg = Message(
@@ -204,7 +231,7 @@ class ChatService {
       
       // Prepare for streaming AI response
       _isStreaming = true;
-      _currentStreamingMessage = '';
+      _currentStreamingMessage = ''; // Ensure it's truly empty
       _streamingMessageId = DateTime.now().millisecondsSinceEpoch.toString() + '_ai';
       
       if (_currentChatId == null) {

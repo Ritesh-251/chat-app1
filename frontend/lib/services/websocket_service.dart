@@ -8,6 +8,7 @@ class WebSocketService {
   
   IO.Socket? _socket;
   bool _isConnected = false;
+  final Set<String> _joinedRooms = {}; // Track joined chat rooms
   
   // Stream controllers for different events
   final _aiResponseController = StreamController<String>.broadcast();
@@ -23,6 +24,12 @@ class WebSocketService {
   
   /// Initialize WebSocket connection
   Future<void> initialize() async {
+    // Check if already connected
+    if (_isConnected && _socket != null) {
+      print('✅ WebSocket already connected, skipping initialization');
+      return;
+    }
+    
     final currentUser = AuthService.instance.currentUser;
     if (currentUser == null) {
       print('🚫 No authenticated user - cannot initialize WebSocket');
@@ -36,12 +43,28 @@ class WebSocketService {
   /// Connect to WebSocket server
   Future<void> connect(String token) async {
     try {
+      // Double-check connection status before creating new socket
+      if (_isConnected && _socket != null && _socket!.connected) {
+        print('✅ WebSocket already connected and active, skipping connect');
+        return;
+      }
+      
+      // Disconnect existing socket if any
+      if (_socket != null) {
+        print('🔄 Disconnecting existing socket before reconnecting');
+        _socket!.disconnect();
+        _socket!.dispose();
+        _socket = null;
+        _isConnected = false;
+      }
+      
       print('🔌 Connecting to WebSocket server...');
       
       _socket = IO.io('http://10.6.192.157:8000', <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
         'auth': {'token': token},
+        'forceNew': true, // Force new connection
       });
       
       _setupEventListeners();
@@ -152,8 +175,15 @@ class WebSocketService {
       return;
     }
     
+    // Check if already joined this room
+    if (_joinedRooms.contains(chatId)) {
+      print('✅ Already joined chat room: $chatId, skipping');
+      return;
+    }
+    
     print('🏠 Joining chat room: $chatId');
     _socket!.emit('join_chat', {'chatId': chatId});
+    _joinedRooms.add(chatId);
   }
   
   /// Leave a specific chat room
@@ -165,6 +195,7 @@ class WebSocketService {
     
     print('🚪 Leaving chat room: $chatId');
     _socket!.emit('leave_chat', {'chatId': chatId});
+    _joinedRooms.remove(chatId);
   }
   
   /// Send typing indicator
@@ -182,9 +213,11 @@ class WebSocketService {
     if (_socket != null) {
       print('🔌 Disconnecting WebSocket...');
       _socket!.disconnect();
+      _socket!.dispose();
       _socket = null;
     }
     _isConnected = false;
+    _joinedRooms.clear(); // Clear joined rooms on disconnect
     _connectionController.add(_isConnected);
   }
   

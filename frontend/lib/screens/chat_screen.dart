@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
@@ -28,6 +29,10 @@ class _ChatScreenState extends State<ChatScreen> {
   String _currentStreamingText = ''; // Track streaming AI response
 
   bool _appUsageConsent = false;
+  
+  // Stream subscriptions for proper disposal
+  StreamSubscription? _streamingMessageSubscription;
+  StreamSubscription? _messagesSubscription;
 
   @override
   void initState() {
@@ -37,10 +42,17 @@ class _ChatScreenState extends State<ChatScreen> {
     _sendUsageLogsIfConsented();
   }
 
-  /// Setup listeners for WebSocket streaming
+  /// Setup listeners for processed chat data from ChatService
   void _setupStreamingListeners() {
-    // Listen to streaming messages
-    _chatService.streamingMessageStream.listen((streamingText) {
+    print('ChatScreen: Setting up streaming listeners');
+    
+    // Cancel existing subscriptions if any
+    _streamingMessageSubscription?.cancel();
+    _messagesSubscription?.cancel();
+    
+    // Listen to streaming messages from ChatService
+    _streamingMessageSubscription = _chatService.streamingMessageStream.listen((streamingText) {
+      print('ChatScreen: Received streaming text update: ${streamingText.length} chars');
       if (mounted) {
         setState(() {
           _currentStreamingText = streamingText;
@@ -50,8 +62,9 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     });
     
-    // Listen to messages updates
-    _chatService.messagesStream.listen((messages) {
+    // Listen to messages updates from ChatService
+    _messagesSubscription = _chatService.messagesStream.listen((messages) {
+      print('ChatScreen: Received messages update: ${messages.length} messages');
       if (mounted) {
         setState(() {
           // Messages list updated, rebuild UI
@@ -165,7 +178,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeChat() async {
-    // Initialize chat service with WebSocket
+    // Initialize chat service with WebSocket (only first time)
     await _chatService.initialize();
     
     // Try to load recent chat (like ChatGPT)
@@ -177,6 +190,12 @@ class _ChatScreenState extends State<ChatScreen> {
       // Check deletion eligibility for loaded messages
       _checkMessageDeletionEligibility();
     }
+  }
+
+  /// For refresh button - properly reinitialize connection
+  Future<void> _refreshConnection() async {
+    await _chatService.reinitialize();
+    await _initializeChat();
   }
 
   Future<void> _sendMessage() async {
@@ -395,7 +414,7 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _initializeChat,
+            onPressed: _refreshConnection,
           ),
           IconButton(
             icon: const Icon(Icons.add, color: Colors.white),
@@ -501,8 +520,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    print('ChatScreen: Disposing and cleaning up subscriptions');
     _controller.dispose();
     _scrollController.dispose();
+    
+    // Cancel stream subscriptions to prevent memory leaks
+    _streamingMessageSubscription?.cancel();
+    _messagesSubscription?.cancel();
+    
+    // Don't disconnect WebSocket here as it's shared across screens
+    // It will be properly managed by the service lifecycle
     super.dispose();
   }
 
