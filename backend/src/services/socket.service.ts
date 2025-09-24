@@ -132,10 +132,50 @@ class SocketService {
         });
     }
 
+    // Emit AI response with cumulative content (better for UI consistency)
+    public emitAIResponseCumulative(chatId: string, fullContent: string, isComplete: boolean = false) {
+        this.io.to(`chat:${chatId}`).emit('ai_response_cumulative', {
+            chatId,
+            content: fullContent,
+            isComplete,
+            timestamp: new Date()
+        });
+    }
+
+    // Emit AI response completion event
+    public emitAIResponseComplete(chatId: string, finalContent: string) {
+        this.io.to(`chat:${chatId}`).emit('ai_response_complete', {
+            chatId,
+            content: finalContent,
+            timestamp: new Date()
+        });
+    }
+
+    // Emit AI response update with word-safe chunking
+    public emitAIResponseWordSafe(chatId: string, newWords: string, fullContent: string, isComplete: boolean = false) {
+        this.io.to(`chat:${chatId}`).emit('ai_response_word_safe', {
+            chatId,
+            newWords,
+            fullContent,
+            isComplete,
+            timestamp: new Date()
+        });
+    }
+
+    // Emit AI typing start indicator (professional)
+    public startAITyping(chatId: string) {
+        this.io.to(`chat:${chatId}`).emit('ai_typing_start', {
+            chatId,
+            isTyping: true,
+            timestamp: new Date()
+        });
+    }
+
     // Stop AI typing indicator
     public stopAITyping(chatId: string) {
         this.io.to(`chat:${chatId}`).emit('ai_typing_stop', {
             chatId,
+            isTyping: false,
             timestamp: new Date()
         });
     }

@@ -39,26 +39,19 @@ class _ChatbotProfileScreenState extends State<ChatbotProfileScreen> {
 
   Future<void> _saveProfile() async {
     setState(() => _loading = true);
-    const serverUrl = "http://192.168.1.2:8000";
-    final url = Uri.parse("$serverUrl/api/v1/chatbot");
 
     final body = {"gender": _selectedGender, "purposes": _selectedPurposes};
-    final headers = {"Content-Type": "application/json"};
 
     try {
-      final authHeader = ApiService.instance.headers['Authorization'];
-      if (authHeader != null) headers["Authorization"] = authHeader;
-    } catch (_) {}
-
-    try {
-      final response =
-          await http.post(url, headers: headers, body: jsonEncode(body));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
+      // Use ApiService for consistent endpoint and authentication
+      final response = await ApiService.instance.saveChatbotProfile(body);
+      
+      if (response['ok'] == true) {
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, ChatScreen.route);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed: ${response.body}")),
+          SnackBar(content: Text("Failed: ${response['message'] ?? 'Unknown error'}")),
         );
       }
     } catch (err) {

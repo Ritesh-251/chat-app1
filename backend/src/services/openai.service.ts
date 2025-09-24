@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { ApiError } from '../utils/Apierror';
+import systemPromptService from './systemPrompt.service';
 
 // Initialize OpenAI client with environment variables
 const openai = new OpenAI({
@@ -9,12 +10,36 @@ const openai = new OpenAI({
 // Default configuration from .env
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const DEFAULT_TEMPERATURE = parseFloat(process.env.OPENAI_TEMPERATURE || '0.2');
-const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || 'You are a helpful academic assistant for students. Provide clear, educational responses.';
+const DEFAULT_SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || `You are Saathi, a warm, playful companion-first WhatsApp buddy for Indian college students. Speak easy Hinglish: English base with light Indian flavor (yaar, thoda, scene). Prefer English sentences with short Hinglish add-ons; avoid long Hindi lines. Keep replies concise, emoji-light (max 1–2, mirror user), and WhatsApp-friendly (1–2 short paragraphs, 4–8 sentences).
+
+COMPANION ENERGY:
+* Be present: notice moods, celebrate tiny wins, and gently check in.
+* Be affectionate (PG): sweet compliments, cozy tone, playful teasing—with consent.
+* Be reliable: remember preferences, follow through on nudges, and show up at agreed times.
+
+PRIMARY GOALS:
+* Companionship first: listen deeply, validate feelings, and keep convo flowing.
+* Be interesting: spark chats about campus life, friends, love, music, memes, dreams.
+* Gentle support: tiny nudges for mood, study focus, and self-care (only if welcomed).
+* Flirty-but-classy: if user shows interest, warm into sweet, playful flirting—not explicit.
+
+CORE PRINCIPLES:
+1) Empathize a specific detail first.
+2) Ask curious and varied follow-up questions.
+3) Respect agency: offer choices, no pressure.
+4) Mirror user tone (emoji/Hinglish).
+5) Rotate hooks and keep variety.
+
+Always avoid:
+- Explicit sexual content
+- Illegal/harmful instructions
+- Medical/legal/financial advice
+- Therapy or crisis counseling (instead, redirect gently).`;
 
 /**
- * Generate AI response for academic chat (original function - for backward compatibility)
+ * Generate AI response for academic chat with personalized system prompt
  * @param messages - Array of conversation messages
- * @param userId - User ID for logging/research purposes
+ * @param userId - User ID for personalized system prompt (optional for backward compatibility)
  * @returns AI response text
  */
 export async function generateAIResponse(
@@ -27,9 +52,20 @@ export async function generateAIResponse(
       throw new ApiError(500, "OpenAI API key not configured");
     }
 
+    // Get personalized system prompt or use default
+    let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    if (userId) {
+      try {
+        systemPrompt = await systemPromptService.generateSystemPrompt(userId);
+      } catch (error) {
+        console.warn(`Failed to get personalized system prompt for user ${userId}, using default:`, error);
+        // Continue with default system prompt
+      }
+    }
+
     // Prepare messages with system prompt
     const formattedMessages = [
-      { role: 'system' as const, content: SYSTEM_PROMPT },
+      { role: 'system' as const, content: systemPrompt },
       ...messages
     ];
 
@@ -70,9 +106,9 @@ export async function generateAIResponse(
 }
 
 /**
- * Generate AI response with streaming (for real-time chat experience)
+ * Generate AI response with streaming and personalized system prompt
  * @param messages - Array of conversation messages
- * @param userId - User ID for logging
+ * @param userId - User ID for personalized system prompt
  * @returns Stream of AI response chunks
  */
 export async function generateAIResponseStream(
@@ -84,8 +120,19 @@ export async function generateAIResponseStream(
       throw new ApiError(500, "OpenAI API key not configured");
     }
 
+    // Get personalized system prompt or use default
+    let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    if (userId) {
+      try {
+        systemPrompt = await systemPromptService.generateSystemPrompt(userId);
+      } catch (error) {
+        console.warn(`Failed to get personalized system prompt for user ${userId}, using default:`, error);
+        // Continue with default system prompt
+      }
+    }
+
     const formattedMessages = [
-      { role: 'system' as const, content: SYSTEM_PROMPT },
+      { role: 'system' as const, content: systemPrompt },
       ...messages
     ];
 
@@ -123,7 +170,7 @@ export function validateOpenAIConfig() {
     hasApiKey: !!process.env.OPENAI_API_KEY,
     model: DEFAULT_MODEL,
     temperature: DEFAULT_TEMPERATURE,
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: DEFAULT_SYSTEM_PROMPT,
     configured: !!process.env.OPENAI_API_KEY
   };
 }

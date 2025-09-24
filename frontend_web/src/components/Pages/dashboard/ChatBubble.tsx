@@ -8,6 +8,7 @@ interface ChatBubbleProps {
 
 export function ChatBubble({ who, text }: ChatBubbleProps) {
   const isStudent = who === "student";
+
   return (
     <div className={`w-full flex ${isStudent ? "justify-start" : "justify-end"}`}>
       <div
@@ -16,7 +17,7 @@ export function ChatBubble({ who, text }: ChatBubbleProps) {
         }`}
         style={!isStudent ? { backgroundColor: BRAND_GREEN, borderColor: BRAND_GREEN } : {}}
       >
-        {text}
+        <span>{text}</span>
       </div>
     </div>
   );

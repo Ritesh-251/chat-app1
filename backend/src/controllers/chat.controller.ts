@@ -46,7 +46,8 @@ export const startChatWithMessage = asyncHandler(async (req: Request, res: Respo
 
     try {
         autoTitle = await generateAIResponse(
-            [{ role: "user", content: titlePrompt }]
+            [{ role: "user", content: titlePrompt }],
+            userId.toString()
         );
 
         // In case AI generates something too long, fallback to first 50 chars
@@ -827,7 +828,7 @@ export const startChatWithStreamingMessage = asyncHandler(async (req: Request, r
     let autoTitle: string;
 
     try {
-        autoTitle = await generateAIResponse([{ role: "user", content: titlePrompt }]);
+        autoTitle = await generateAIResponse([{ role: "user", content: titlePrompt }], userId.toString());
     } catch (error) {
         console.warn("Title generation failed, using fallback");
         autoTitle = `Chat ${new Date().toLocaleDateString()}`;
@@ -946,23 +947,30 @@ async function streamAIResponse(chatId: string, userMessage: string, userId: str
             }))
         );
 
+        // Start AI typing indicator
+        socketService.startAITyping(chatId);
+
         // Start streaming
         console.log(`🚀 Starting AI response stream for chat: ${chatId}`);
         
         const stream = await generateAIResponseStream(conversationHistory, userId);
         let fullResponse = '';
 
-        // Process stream chunks
+        // Process stream chunks - send each delta immediately
         const streamResponse = stream as any;
         for await (const chunk of streamResponse) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-                fullResponse += content;
+            const deltaContent = chunk.choices[0]?.delta?.content || '';
+            if (deltaContent) {
+                fullResponse += deltaContent;
                 
-                // Send chunk via WebSocket
-                socketService.emitAIResponseChunk(chatId, content, false);
+                // Send only the new delta content immediately
+                // No buffering to prevent repetition
+                socketService.emitAIResponseChunk(chatId, deltaContent, false);
             }
         }
+        
+        // Send completion signal (no additional content)
+        socketService.emitAIResponseChunk(chatId, '', true);
 
         // Stop AI typing indicator
         socketService.stopAITyping(chatId);
@@ -978,8 +986,10 @@ async function streamAIResponse(chatId: string, userMessage: string, userId: str
             chat.updatedAt = new Date();
             await chat.save();
 
-            // Send complete response notification
-            socketService.emitAIResponse(chatId, fullResponse.trim(), Date.now().toString());
+            // Emit completion event to frontend
+            socketService.emitAIResponseComplete(chatId, fullResponse.trim());
+            
+            console.log(`✅ AI response saved to database for chat: ${chatId}`);
         }
 
         console.log(`✅ AI response stream completed for chat: ${chatId}`);

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'typing_indicator.dart';
 
 class ChatBubble extends StatelessWidget {
   final String text;
@@ -9,6 +11,7 @@ class ChatBubble extends StatelessWidget {
   final bool canDelete;
 
   final bool isStreaming;
+  final bool isTyping; // New property for typing state
   
   const ChatBubble({
     super.key,
@@ -18,6 +21,7 @@ class ChatBubble extends StatelessWidget {
     this.onDelete,
     this.canDelete = false,
     this.isStreaming = false,
+    this.isTyping = false,
   });
 
   void _showDeleteOption(BuildContext context) {
@@ -124,9 +128,70 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
+  Widget _buildMessageContent(Color textColor) {
+    // If AI is typing (before any content), show typing indicator
+    if (isTyping && !fromUser && text.isEmpty) {
+      return ChatTypingDots(color: textColor);
+    }
+
+    // For AI responses, use markdown rendering
+    if (!fromUser && text.isNotEmpty) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: MarkdownBody(
+              data: text,
+              styleSheet: MarkdownStyleSheet(
+                p: TextStyle(color: textColor, fontSize: 16),
+                strong: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                em: TextStyle(color: textColor, fontStyle: FontStyle.italic),
+                code: TextStyle(
+                  color: textColor,
+                  backgroundColor: textColor.withOpacity(0.1),
+                  fontFamily: 'monospace',
+                ),
+                codeblockDecoration: BoxDecoration(
+                  color: textColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                blockquote: TextStyle(color: textColor.withOpacity(0.8)),
+                h1: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 24),
+                h2: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 20),
+                h3: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18),
+                listBullet: TextStyle(color: textColor),
+              ),
+            ),
+          ),
+          // Show modern typing indicator for streaming messages
+          if (isStreaming) ...[
+            const SizedBox(width: 8),
+            TypingIndicator(color: textColor, size: 4.0),
+          ],
+        ],
+      );
+    }
+
+    // For user messages, use regular text
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(text, style: TextStyle(color: textColor)),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final align = fromUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    
+    // Define colors
+    final bg = fromUser
+        ? Colors.lightGreen.shade100
+        : Colors.grey.shade200;
+    final fg = fromUser ? Colors.green.shade800 : Colors.black87;
 
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(16),
@@ -140,29 +205,8 @@ class ChatBubble extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
 
-
       decoration: BoxDecoration(color: bg, borderRadius: radius),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(text, style: TextStyle(color: fg)),
-          ),
-          // Show typing indicator for streaming messages
-          if (isStreaming && !fromUser) ...[
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(fg),
-              ),
-            ),
-          ],
-        ],
-      ),
-
+      child: _buildMessageContent(fg),
     );
 
     if (fromUser && canDelete && onDelete != null) {

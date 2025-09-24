@@ -7,8 +7,8 @@ class ApiService {
   static final instance = ApiService._();
 
   // Update this to your backend URL
-  // Local development server
-  static const String baseUrl = 'http://10.44.1.163:8000';
+  // Using IP address for reliable mobile connection
+  static const String baseUrl = 'http://10.6.192.157:8000';
   
   static const String _tokenKey = 'api_token';
   static const String _refreshTokenKey = 'refresh_token';
@@ -486,6 +486,37 @@ class ApiService {
         return {
           'ok': false,
           'message': 'Failed to check deletion status: ${response.statusCode}'
+        };
+      }
+    } catch (e) {
+      return {
+        'ok': false,
+        'message': 'Network error: $e'
+      };
+    }
+  }
+
+  /// Save chatbot profile for personalized AI responses
+  Future<Map<String, dynamic>> saveChatbotProfile(Map<String, dynamic> profileData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/v1/chatbot'),
+        headers: headers,
+        body: jsonEncode(profileData),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return {
+          'ok': true,
+          'data': data['data'],
+          'message': data['message'] ?? 'Profile saved successfully'
+        };
+      } else {
+        return {
+          'ok': false,
+          'message': data['message'] ?? 'Failed to save profile: ${response.statusCode}'
         };
       }
     } catch (e) {

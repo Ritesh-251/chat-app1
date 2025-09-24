@@ -1,12 +1,14 @@
-\import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'screens/start_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/consent_screen.dart';
+import 'screens/chatbot_profile.dart';
 import 'services/notification_service.dart';
 
 import 'services/background_service.dart';

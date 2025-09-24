@@ -105,6 +105,7 @@ class ChatService {
     // Listen for AI response chunks
     _webSocketService.aiResponseStream.listen((chunk) {
       print('📨 Received chunk: "$chunk"');
+      // Just append the new chunk, don't accumulate
       _currentStreamingMessage += chunk;
       _streamingController.add(_currentStreamingMessage);
     });
@@ -186,6 +187,11 @@ class ChatService {
   // Send message with real-time streaming
   Future<String> sendMessage(String userMessage) async {
     try {
+      // If we're currently streaming, finish it first
+      if (_isStreaming && _currentStreamingMessage.isNotEmpty) {
+        _finishStreamingMessage({});
+      }
+      
       // Add user message immediately to UI
       final userMsg = Message(
         id: DateTime.now().millisecondsSinceEpoch.toString(),

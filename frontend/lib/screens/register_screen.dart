@@ -105,6 +105,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   @override
+  void dispose() {
+    // Dispose all text controllers to prevent memory leaks
+    _name.dispose();
+    _enrollment.dispose();
+    _batch.dispose();
+    _course.dispose();
+    _country.dispose();
+    _email.dispose();
+    _password.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

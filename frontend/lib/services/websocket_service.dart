@@ -38,7 +38,7 @@ class WebSocketService {
     try {
       print('🔌 Connecting to WebSocket server...');
       
-      _socket = IO.io('http://10.44.1.163:8000', <String, dynamic>{
+      _socket = IO.io('http://10.6.192.157:8000', <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
         'auth': {'token': token},
