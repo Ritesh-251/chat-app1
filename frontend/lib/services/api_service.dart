@@ -8,7 +8,7 @@ class ApiService {
 
   // Update this to your backend URL
   // Using IP address for reliable mobile connection
-  static const String baseUrl = 'http://10.6.192.157:8000';
+  static const String baseUrl = 'http://10.149.195.163:8000';
   
   static const String _tokenKey = 'api_token';
   static const String _refreshTokenKey = 'refresh_token';

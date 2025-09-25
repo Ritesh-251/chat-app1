@@ -115,4 +115,7 @@ userSchema.methods.generateRefreshToken = function (this: IUser): string {
 };
 
 const User = model<IUser>("User", userSchema);
+
+// Export both the model and schema for app-specific database connections
+export { userSchema };
 export default User;

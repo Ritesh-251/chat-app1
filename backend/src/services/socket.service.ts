@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
-import User from "../models/user.model.js";
+import { getDbConnection } from "../db/index.js";
+import { userSchema } from "../models/user.model.js";
 
 interface AuthenticatedSocket extends Socket {
     userId?: string;
@@ -47,24 +48,45 @@ class SocketService {
     private async authenticateSocket(socket: AuthenticatedSocket, next: Function) {
         try {
             const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
-            
+
             if (!token) {
+                console.log('❌ Socket auth failed: no token provided in handshake.auth or Authorization header');
                 return next(new Error('Authentication error: No token provided'));
             }
 
+            // Determine appId from handshake early so we authenticate against the correct DB
+            // Accept appId from auth payload (preferred), then headers, then query
+            const appId = socket.handshake.auth?.appId || socket.handshake.headers['x-app-id'] || socket.handshake.query.appId || 'app1';
+            const authSource = socket.handshake.auth?.appId ? 'auth.payload' : (socket.handshake.headers['x-app-id'] ? 'headers' : (socket.handshake.query.appId ? 'query' : 'default'));
+            (socket as any).appId = appId;
+
+            // Mask token for logs
+            const maskedToken = typeof token === 'string' ? `${token.substring(0, Math.min(12, token.length))}...(${token.length} chars)` : 'non-string-token';
+            console.log(`🔐 Socket auth attempt - appId: ${appId} (source: ${authSource}), token: ${maskedToken}`);
+
+            // Use the app-specific DB connection and model to look up the user
+            const connection = getDbConnection(appId as string);
+            const UserModel = connection.model('User', userSchema);
+
             const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string) as any;
-            const user = await User.findById(decoded._id);
-            
+            console.log(`🔎 Token decoded - _id: ${decoded?._id}`);
+
+            const user = await UserModel.findById(decoded._id);
+
             if (!user) {
-                return next(new Error('Authentication error: User not found'));
+                console.log(`❌ User not found in DB for appId=${appId}. Decoded id=${decoded?._id}. DB: ${connection.host}:${connection.port}/${connection.name}`);
+                return next(new Error(`Authentication error: User not found for appId=${appId}`));
             }
 
             socket.userId = (user._id as any).toString();
             socket.userEmail = user.email;
+
+            console.log(`🔌 Socket authenticated for app: ${appId} (appId source: ${authSource}) - user: ${socket.userEmail} (${socket.userId})`);
             next();
         } catch (error) {
-            console.log('❌ Socket authentication failed:', error);
-            next(new Error('Authentication error: Invalid token'));
+            console.log('❌ Socket authentication failed:', (error as any)?.message || error);
+            // Propagate the underlying error message where safe (helps debugging)
+            return next(new Error(`Authentication error: ${((error as any)?.message) || 'Invalid token'}`));
         }
     }
 
@@ -201,14 +223,36 @@ class SocketService {
         console.log(`🚀 Starting streaming chat for ${socket.userEmail}: ${message}`);
         
         try {
-            // Import chat controller functions
+            // Import chat controller functions and database utilities
             const { startChatWithStreamingMessage } = await import('../controllers/chat.controller.js');
+            const { getDbConnection } = await import('../db/index.js');
+            const { chatSchema } = await import('../models/chat.model.js');
+            const { userSchema } = await import('../models/user.model.js');
+            const { ConsentSchema } = await import('../models/consent.model.js');
+            const { UsageLogSchema } = await import('../models/usageLog.model.js');
+            const { userTokenSchema } = await import('../models/userToken.model.js');
             
-            // Create a mock request/response for the controller
+            const appId = (socket as any).appId || 'app1';
+            const connection = getDbConnection(appId);
+            
+            // Create a mock request with database models attached
             const mockReq = {
                 body: { message },
-                user: { _id: socket.userId }
+                user: { _id: socket.userId },
+                appId: appId,
+                // Attach app-specific models
+                Chat: connection.model('Chat', chatSchema),
+                User: connection.model('User', userSchema),
+                Consent: connection.model('Consent', ConsentSchema),
+                UsageLog: connection.model('UsageLog', UsageLogSchema),
+                UserToken: connection.model('UserToken', userTokenSchema)
             } as any;
+            
+            // Only add ChatbotProfile for App1
+            if (appId === 'app1') {
+                const { ChatbotProfileSchema } = await import('../models/chatbotProfile.model.js');
+                mockReq.ChatbotProfile = connection.model('ChatbotProfile', ChatbotProfileSchema);
+            }
             
             const mockRes = {
                 status: (code: number) => ({
@@ -240,14 +284,36 @@ class SocketService {
         console.log(`📤 Streaming message from ${socket.userEmail} in chat ${chatId}: ${message}`);
         
         try {
-            // Import chat controller functions
+            // Import chat controller functions and database utilities
             const { sendStreamingMessage } = await import('../controllers/chat.controller.js');
+            const { getDbConnection } = await import('../db/index.js');
+            const { chatSchema } = await import('../models/chat.model.js');
+            const { userSchema } = await import('../models/user.model.js');
+            const { ConsentSchema } = await import('../models/consent.model.js');
+            const { UsageLogSchema } = await import('../models/usageLog.model.js');
+            const { userTokenSchema } = await import('../models/userToken.model.js');
             
-            // Create a mock request/response for the controller
+            const appId = (socket as any).appId || 'app1';
+            const connection = getDbConnection(appId);
+            
+            // Create a mock request with database models attached
             const mockReq = {
                 body: { chatId, message },
-                user: { _id: socket.userId }
+                user: { _id: socket.userId },
+                appId: appId,
+                // Attach app-specific models
+                Chat: connection.model('Chat', chatSchema),
+                User: connection.model('User', userSchema),
+                Consent: connection.model('Consent', ConsentSchema),
+                UsageLog: connection.model('UsageLog', UsageLogSchema),
+                UserToken: connection.model('UserToken', userTokenSchema)
             } as any;
+            
+            // Only add ChatbotProfile for App1
+            if (appId === 'app1') {
+                const { ChatbotProfileSchema } = await import('../models/chatbotProfile.model.js');
+                mockReq.ChatbotProfile = connection.model('ChatbotProfile', ChatbotProfileSchema);
+            }
             
             const mockRes = {
                 status: (code: number) => ({

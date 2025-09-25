@@ -18,3 +18,6 @@ const ChatbotProfileSchema = new Schema<IChatbotProfile>(
 );
 
 export default model<IChatbotProfile>("ChatbotProfile", ChatbotProfileSchema);
+
+// Export schema for dynamic database connections
+export { ChatbotProfileSchema };

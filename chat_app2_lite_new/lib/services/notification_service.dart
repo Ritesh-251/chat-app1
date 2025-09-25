@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'api_service.dart';
 
 class NotificationService {
   static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -22,7 +23,7 @@ class NotificationService {
 
   static Future<void> sendTokenToBackend(String token) async {
     final response = await http.post(
-      Uri.parse('http://10.6.192.157:8000/api/v1/notification'),
+      Uri.parse('${ApiService.baseUrl}/api/v1/notification'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({"token": token}),
     );

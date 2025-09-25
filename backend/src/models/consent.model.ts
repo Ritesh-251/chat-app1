@@ -20,3 +20,6 @@ const ConsentSchema = new Schema<IConsent>({
 });
 
 export const Consent = model<IConsent>("Consent", ConsentSchema);
+
+// Export schema for dynamic database connections
+export { ConsentSchema };

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,12 +9,12 @@ class ApiService {
 
   // Update this to your backend URL
   // Using IP address for reliable mobile connection
-  static const String baseUrl = 'http://10.6.192.157:8000';
+  static const String baseUrl = 'http://10.149.195.163:8000';
   
   static const String _tokenKey = 'api_token';
   static const String _refreshTokenKey = 'refresh_token';
   
-  String? _appId = 'app1'; // Default to app1
+  String? _appId = 'app2'; // Default to app2 for lite version
   
   final Map<String, String> _headers = {
     'Content-Type': 'application/json',
@@ -157,10 +158,11 @@ class ApiService {
         };
       }
     } catch (e) {
-      print('🔄 Token refresh error: $e');
+      final msg = _formatNetworkError(e);
+      print('🔄 Token refresh error: $msg');
       return {
         'ok': false,
-        'message': 'Token refresh error: $e'
+        'message': 'Token refresh error: $msg'
       };
     }
   }
@@ -210,9 +212,10 @@ class ApiService {
         };
       }
     } catch (e) {
+      final msg = _formatNetworkError(e);
       return {
         'ok': false,
-        'message': 'Network error: $e'
+        'message': 'Network error: $msg'
       };
     }
   }
@@ -534,6 +537,21 @@ class ApiService {
         'ok': false,
         'message': 'Network error: $e'
       };
+    }
+  }
+  
+  // Helper to format known network errors (SocketException, HttpException, etc.)
+  String _formatNetworkError(Object e) {
+    if (e is SocketException) {
+      return 'SocketException: ${e.message}';
+    }
+    if (e is HttpException) {
+      return 'HttpException: ${e.message}';
+    }
+    try {
+      return e.toString();
+    } catch (_) {
+      return 'Unknown network error';
     }
   }
 

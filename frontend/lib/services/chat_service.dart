@@ -78,16 +78,28 @@ class ChatService {
   bool _isStreaming = false;
   String _currentStreamingMessage = '';
   String? _streamingMessageId;
+  String _lastReceivedChunk = '';
   final _streamingController = StreamController<String>.broadcast();
   final _messagesController = StreamController<List<Message>>.broadcast();
+  final _currentChatController = StreamController<String?>.broadcast();
   bool _listenersSetup = false; // Track if listeners are already set up
   
   // Public streams and getters
   Stream<String> get streamingMessageStream => _streamingController.stream;
   Stream<List<Message>> get messagesStream => _messagesController.stream;
+  Stream<String?> get currentChatStream => _currentChatController.stream;
   List<Message> get messages => List.unmodifiable(_messages);
   String? get currentChatId => _currentChatId;
   String? get currentChatTitle => _currentChatTitle;
+  // Public API to set chat title (updates state and notifies listeners)
+  void setCurrentChatTitle(String? title) {
+    _currentChatTitle = title;
+    try {
+      _currentChatController.add(_currentChatId);
+    } catch (e) {
+      print('Error emitting currentChat after title set: $e');
+    }
+  }
   bool get isStreaming => _isStreaming;
   String get currentStreamingMessage => _currentStreamingMessage;
 
@@ -98,6 +110,10 @@ class ChatService {
       print('🔄 ChatService already initialized, skipping...');
       return;
     }
+      if (_listenersSetup) {
+        print('⚠️ ChatService listeners already set up, skipping duplicate initialization');
+        return;
+      }
     
     await _webSocketService.initialize();
     if (!_listenersSetup) {
@@ -124,8 +140,33 @@ class ChatService {
       
       // Only process if we're actively streaming
       if (_isStreaming && _streamingMessageId != null) {
-        // Accumulate the chunk for the complete message
-        _currentStreamingMessage += chunk;
+        // Only append non-empty chunks
+        final trimmed = chunk.trim();
+        if (trimmed.isNotEmpty) {
+          // Ignore exact duplicate chunks received consecutively
+          if (trimmed == _lastReceivedChunk) {
+            print('⚠️ Ignoring exact duplicate chunk: "${trimmed}"');
+          } else {
+            _lastReceivedChunk = trimmed;
+            // Append only the non-overlapping suffix to avoid duplication
+            final curr = _currentStreamingMessage;
+            final incoming = chunk;
+            final maxOverlap = curr.length < incoming.length ? curr.length : incoming.length;
+            int overlap = 0;
+            for (int k = maxOverlap; k > 0; k--) {
+              if (curr.endsWith(incoming.substring(0, k))) {
+                overlap = k;
+                break;
+              }
+            }
+            final toAppend = incoming.substring(overlap);
+            if (toAppend.isNotEmpty) {
+              _currentStreamingMessage += toAppend;
+            } else {
+              print('⚠️ Incoming chunk fully overlaps existing content, skipping append');
+            }
+          }
+        }
         // Emit the FULL message so far (not just the chunk)
         _streamingController.add(_currentStreamingMessage);
         print('📤 Emitted accumulated message: "${_currentStreamingMessage}"');
@@ -160,6 +201,17 @@ class ChatService {
     if (data['chatId'] != null) {
       _currentChatId = data['chatId'];
       print('📍 Updated chat ID: $_currentChatId');
+      // Notify listeners (e.g., drawer) that current chat changed
+      try {
+        _currentChatController.add(_currentChatId);
+      } catch (e) {
+        print('Error emitting currentChat change: $e');
+      }
+    }
+    // Update chat title if present in backend response
+    if (data['title'] != null && data['title'] is String && data['title'].isNotEmpty) {
+      _currentChatTitle = data['title'];
+      print('📝 Updated chat title: $_currentChatTitle');
     }
     
     // Reset streaming state
@@ -184,6 +236,12 @@ class ChatService {
     _messages.clear();
     _currentChatId = null;
     _currentChatTitle = null;
+    // Notify listeners that current chat cleared
+    try {
+      _currentChatController.add(null);
+    } catch (e) {
+      print('Error emitting currentChat clear: $e');
+    }
   }
 
   // Load recent chat when app starts (like ChatGPT)
@@ -197,6 +255,12 @@ class ChatService {
         
         _currentChatId = session.id;
         _currentChatTitle = session.title;
+        // Notify listeners about current chat
+        try {
+          _currentChatController.add(_currentChatId);
+        } catch (e) {
+          print('Error emitting currentChat from loadRecentChat: $e');
+        }
         _setMessages(session.messages);
         
         return true;

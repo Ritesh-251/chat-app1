@@ -47,12 +47,14 @@ const getSystemPrompt = (appId: string = 'app1'): string => {
  * @param messages - Array of conversation messages
  * @param userId - User ID for personalized system prompt (optional for backward compatibility)
  * @param appId - App ID to determine which system prompt to use
+ * @param ChatbotProfileModel - ChatbotProfile model for App1 personalization (optional)
  * @returns AI response text
  */
 export async function generateAIResponse(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   userId?: string,
-  appId?: string
+  appId?: string,
+  ChatbotProfileModel?: any
 ): Promise<string> {
   try {
     // Validate API key
@@ -63,10 +65,10 @@ export async function generateAIResponse(
     // Get system prompt based on app type
     let systemPrompt = getSystemPrompt(appId);
     
-    // For App1 (full version), try to get personalized system prompt if userId provided
-    if (appId === 'app1' && userId) {
+    // For App1 (full version), try to get personalized system prompt if userId and model provided
+    if (appId === 'app1' && userId && ChatbotProfileModel) {
       try {
-        systemPrompt = await systemPromptService.generateSystemPrompt(userId);
+        systemPrompt = await systemPromptService.generateSystemPrompt(userId, ChatbotProfileModel);
         console.log('🎯 Using personalized system prompt for App1 user:', userId);
       } catch (error) {
         console.warn(`Failed to get personalized system prompt for user ${userId}, using default App1 prompt:`, error);
@@ -121,12 +123,14 @@ export async function generateAIResponse(
  * @param messages - Array of conversation messages
  * @param userId - User ID for personalized system prompt
  * @param appId - App ID to determine which system prompt to use
+ * @param ChatbotProfileModel - ChatbotProfile model for App1 personalization (optional)
  * @returns Stream of AI response chunks
  */
 export async function generateAIResponseStream(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   userId?: string,
-  appId?: string
+  appId?: string,
+  ChatbotProfileModel?: any
 ) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -136,10 +140,10 @@ export async function generateAIResponseStream(
     // Get system prompt based on app type
     let systemPrompt = getSystemPrompt(appId);
     
-    // For App1 (full version), try to get personalized system prompt if userId provided
-    if (appId === 'app1' && userId) {
+    // For App1 (full version), try to get personalized system prompt if userId and model provided
+    if (appId === 'app1' && userId && ChatbotProfileModel) {
       try {
-        systemPrompt = await systemPromptService.generateSystemPrompt(userId);
+        systemPrompt = await systemPromptService.generateSystemPrompt(userId, ChatbotProfileModel);
         console.log('🎯 Using personalized system prompt for App1 streaming user:', userId);
       } catch (error) {
         console.warn(`Failed to get personalized system prompt for user ${userId}, using default App1 prompt:`, error);

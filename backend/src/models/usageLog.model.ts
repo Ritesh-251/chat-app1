@@ -25,3 +25,6 @@ const UsageLogSchema = new Schema<IUsageLog>(
 );
 
 export const UsageLog = model<IUsageLog>("UsageLog", UsageLogSchema);
+
+// Export schema for dynamic database connections
+export { UsageLogSchema };

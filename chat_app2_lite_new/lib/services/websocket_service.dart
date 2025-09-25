@@ -8,7 +8,12 @@ class WebSocketService {
   
   IO.Socket? _socket;
   bool _isConnected = false;
+  bool _listenersRegistered = false;
   final Set<String> _joinedRooms = {}; // Track joined chat rooms
+  bool _manualDisconnect = false;
+  int _reconnectAttempts = 0;
+  final int _maxReconnectAttempts = 6;
+  final Duration _reconnectBaseDelay = Duration(seconds: 2);
   
   // Stream controllers for different events
   final _aiResponseController = StreamController<String>.broadcast();
@@ -60,10 +65,11 @@ class WebSocketService {
       
       print('🔌 Connecting to WebSocket server...');
       
-      _socket = IO.io('http://10.6.192.157:8000', <String, dynamic>{
+      _manualDisconnect = false;
+      _socket = IO.io('http://10.149.195.16:8000', <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
-        'auth': {'token': token},
+        'auth': {'token': token, 'appId': 'app2'},
         'forceNew': true, // Force new connection
       });
       
@@ -71,15 +77,22 @@ class WebSocketService {
       _socket!.connect();
       
     } catch (e) {
-      print('❌ WebSocket connection error: $e');
-      _isConnected = false;
-      _connectionController.add(_isConnected);
+        print('❌ WebSocket connection error: $e');
+        _isConnected = false;
+        _connectionController.add(_isConnected);
+        // Schedule a reconnect attempt when connect() throws
+        _scheduleReconnect(token);
     }
   }
   
   /// Setup event listeners for WebSocket
   void _setupEventListeners() {
     if (_socket == null) return;
+    if (_listenersRegistered) {
+      print('⚠️ WebSocket listeners already registered for App2, skipping duplicate setup');
+      return;
+    }
+    _listenersRegistered = true;
     
     // Connection events
     _socket!.onConnect((_) {
@@ -92,12 +105,20 @@ class WebSocketService {
       print('❌ WebSocket disconnected');
       _isConnected = false;
       _connectionController.add(_isConnected);
+      if (!_manualDisconnect) {
+        // Try to reconnect automatically
+        final token = AuthService.instance.currentUser?.token;
+        if (token != null) _scheduleReconnect(token);
+      }
     });
     
     _socket!.onConnectError((error) {
       print('❌ WebSocket connection error: $error');
       _isConnected = false;
       _connectionController.add(_isConnected);
+      // Connection errors should trigger a reconnect with backoff
+      final token = AuthService.instance.currentUser?.token;
+      if (token != null) _scheduleReconnect(token);
     });
     
     // Authentication events
@@ -210,15 +231,40 @@ class WebSocketService {
   
   /// Disconnect WebSocket
   Future<void> disconnect() async {
+    // Mark that this was a user-initiated disconnect so reconnect won't fire
+    _manualDisconnect = true;
     if (_socket != null) {
       print('🔌 Disconnecting WebSocket...');
-      _socket!.disconnect();
-      _socket!.dispose();
+      try {
+        _socket!.disconnect();
+        _socket!.dispose();
+      } catch (e) {
+        print('Error while disposing socket: $e');
+      }
       _socket = null;
     }
     _isConnected = false;
     _joinedRooms.clear(); // Clear joined rooms on disconnect
+    // Allow listeners to be re-registered on next connect
+    _listenersRegistered = false;
+    _reconnectAttempts = 0;
     _connectionController.add(_isConnected);
+  }
+
+  void _scheduleReconnect(String token) {
+    if (_manualDisconnect) return; // don't reconnect after manual disconnect
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      print('⚠️ Max reconnect attempts reached ($_reconnectAttempts) - giving up');
+      return;
+    }
+    _reconnectAttempts += 1;
+    final delay = _reconnectBaseDelay * _reconnectAttempts;
+    print('⏳ Scheduling reconnect attempt #${_reconnectAttempts} in ${delay.inSeconds}s');
+    Future.delayed(delay, () async {
+      if (_manualDisconnect) return;
+      print('🔄 Attempting reconnect #${_reconnectAttempts}');
+      await connect(token);
+    });
   }
   
   /// Reconnect with new token

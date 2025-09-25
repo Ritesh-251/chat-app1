@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import ChatbotProfile from "../models/chatbotProfile.model";
 
 export const saveOrUpdateProfile = async (req: Request, res: Response) => {
   try {
@@ -20,7 +19,7 @@ export const saveOrUpdateProfile = async (req: Request, res: Response) => {
     }
 
     // Upsert: update existing profile or create new one
-    const profile = await ChatbotProfile.findOneAndUpdate(
+    const profile = await (req as any).ChatbotProfile.findOneAndUpdate(
       { userId },
       { gender, purposes },
       { new: true, upsert: true, setDefaultsOnInsert: true }

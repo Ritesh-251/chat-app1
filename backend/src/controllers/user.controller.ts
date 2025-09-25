@@ -1,6 +1,5 @@
 // Get most recent chat for a user
 import { asyncHandler } from "../utils/asyncHandler";
-import User from "../models/user.model";
 import { Request, Response } from "express";
 import { ApiError } from "../utils/Apierror";
 import { Types } from "mongoose";
@@ -8,7 +7,7 @@ import jwt from "jsonwebtoken";
 
 
 
-async function generateAccessTokenandRefreshToken(id: string | Types.ObjectId) {
+async function generateAccessTokenandRefreshToken(id: string | Types.ObjectId, User: any) {
     try {
         const user = await User.findById(id);
         if (!user) {
@@ -30,6 +29,9 @@ async function generateAccessTokenandRefreshToken(id: string | Types.ObjectId) {
 
 
 export const registerUser = asyncHandler(async (req: Request, res: Response) => {
+    // Use app-specific User model
+    const User = (req as any).User;
+    
     const { email, password, name, enrollment, batch, course, country } = req.body;
 
     const existedUser = await User.findOne({ email });
@@ -55,7 +57,7 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
     }
 
     // Generate tokens just like in Signin
-    const { accessToken, refreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId);
+    const { accessToken, refreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId, User);
     const options = {
         httpOnly: true,
         secure: false,
@@ -81,6 +83,9 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
         });
 });
 export const Signin = asyncHandler(async(req:Request, res:Response)=>{
+    // Use app-specific User model
+    const User = (req as any).User;
+    
     const { email, password } = req.body;
     const loggedinUser = await User.findOne({email});
     if(!loggedinUser){
@@ -90,7 +95,7 @@ export const Signin = asyncHandler(async(req:Request, res:Response)=>{
     if(PasswordVerification == false){
         throw new ApiError(403,"Please enter the correct password");
     }
-    const {accessToken,refreshToken} = await generateAccessTokenandRefreshToken(loggedinUser._id as Types.ObjectId);
+    const {accessToken,refreshToken} = await generateAccessTokenandRefreshToken(loggedinUser._id as Types.ObjectId, User);
     const options = 
     {
         httpOnly:true,
@@ -107,6 +112,9 @@ export const Signin = asyncHandler(async(req:Request, res:Response)=>{
     })
 })
 export const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
+    // Use app-specific User model
+    const User = (req as any).User;
+    
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     if (!incomingRefreshToken) {
@@ -134,7 +142,7 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
             secure: false,
         };
 
-        const { accessToken, refreshToken: newRefreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId);
+        const { accessToken, refreshToken: newRefreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId, User);
 
         return res
             .status(200)
@@ -152,7 +160,7 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
 });
 
 export const logoutUser = async (req:Request,res:Response) => {
-    await User.findByIdAndUpdate(
+    await (req as any).User.findByIdAndUpdate(
       (req as any).user._id,
       {
          $set: {

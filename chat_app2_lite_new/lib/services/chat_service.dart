@@ -80,11 +80,14 @@ class ChatService {
   String? _streamingMessageId;
   final _streamingController = StreamController<String>.broadcast();
   final _messagesController = StreamController<List<Message>>.broadcast();
+  final _currentChatController = StreamController<String?>.broadcast();
   bool _listenersSetup = false; // Track if listeners are already set up
+  String _lastReceivedChunk = '';
   
   // Public streams and getters
   Stream<String> get streamingMessageStream => _streamingController.stream;
   Stream<List<Message>> get messagesStream => _messagesController.stream;
+  Stream<String?> get currentChatStream => _currentChatController.stream;
   List<Message> get messages => List.unmodifiable(_messages);
   String? get currentChatId => _currentChatId;
   String? get currentChatTitle => _currentChatTitle;
@@ -120,15 +123,38 @@ class ChatService {
     
     // Listen for AI response chunks
     _webSocketService.aiResponseStream.listen((chunk) {
-      print('📨 Received chunk: "$chunk" (current: "${_currentStreamingMessage}")');
-      
+      print('📨 [App2] Received chunk: "${chunk}" (current: "${_currentStreamingMessage}")');
       // Only process if we're actively streaming
       if (_isStreaming && _streamingMessageId != null) {
-        // Accumulate the chunk for the complete message
-        _currentStreamingMessage += chunk;
+        final trimmed = chunk.trim();
+        if (trimmed.isNotEmpty) {
+          // Ignore exact duplicate chunks received consecutively
+          if (trimmed == _lastReceivedChunk) {
+            print('⚠️ [App2] Ignoring exact duplicate chunk: "${trimmed}"');
+          } else {
+            _lastReceivedChunk = trimmed;
+            // Append only the non-overlapping suffix to avoid duplication
+            final curr = _currentStreamingMessage;
+            final incoming = chunk;
+            final maxOverlap = curr.length < incoming.length ? curr.length : incoming.length;
+            int overlap = 0;
+            for (int k = maxOverlap; k > 0; k--) {
+              if (curr.endsWith(incoming.substring(0, k))) {
+                overlap = k;
+                break;
+              }
+            }
+            final toAppend = incoming.substring(overlap);
+            if (toAppend.isNotEmpty) {
+              _currentStreamingMessage += toAppend;
+            } else {
+              print('⚠️ [App2] Incoming chunk fully overlaps existing content, skipping append');
+            }
+          }
+        }
         // Emit the FULL message so far (not just the chunk)
         _streamingController.add(_currentStreamingMessage);
-        print('📤 Emitted accumulated message: "${_currentStreamingMessage}"');
+        print('📤 [App2] Emitted accumulated message: "${_currentStreamingMessage}"');
       }
     });
     
@@ -160,6 +186,11 @@ class ChatService {
     if (data['chatId'] != null) {
       _currentChatId = data['chatId'];
       print('📍 Updated chat ID: $_currentChatId');
+      try {
+        _currentChatController.add(_currentChatId);
+      } catch (e) {
+        print('Error emitting currentChat from finishStreamingMessage: $e');
+      }
     }
     
     // Reset streaming state

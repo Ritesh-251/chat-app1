@@ -8,6 +8,7 @@ class WebSocketService {
   
   IO.Socket? _socket;
   bool _isConnected = false;
+  bool _listenersRegistered = false;
   final Set<String> _joinedRooms = {}; // Track joined chat rooms
   
   // Stream controllers for different events
@@ -29,7 +30,6 @@ class WebSocketService {
       print('✅ WebSocket already connected, skipping initialization');
       return;
     }
-    
     final currentUser = AuthService.instance.currentUser;
     if (currentUser == null) {
       print('🚫 No authenticated user - cannot initialize WebSocket');
@@ -60,7 +60,7 @@ class WebSocketService {
       
       print('🔌 Connecting to WebSocket server...');
       
-      _socket = IO.io('http://10.6.192.157:8000', <String, dynamic>{
+      _socket = IO.io('v:8000', <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
         'auth': {'token': token},
@@ -78,12 +78,17 @@ class WebSocketService {
   }
   
   /// Setup event listeners for WebSocket
+  bool _listenersRegistered = false;
   void _setupEventListeners() {
     if (_socket == null) return;
-    
+    if (_listenersRegistered) {
+      print('⚠️ WebSocket listeners already registered, skipping duplicate setup');
+      return;
+    }
+    _listenersRegistered = true;
     // Connection events
     _socket!.onConnect((_) {
-      print('✅ WebSocket connected');
+      print('✅ WebSocket connected (id: ${_socket!.id})');
       _isConnected = true;
       _connectionController.add(_isConnected);
     });
@@ -218,6 +223,8 @@ class WebSocketService {
     }
     _isConnected = false;
     _joinedRooms.clear(); // Clear joined rooms on disconnect
+    // Allow listeners to be re-registered on next connect
+    _listenersRegistered = false;
     _connectionController.add(_isConnected);
   }
   

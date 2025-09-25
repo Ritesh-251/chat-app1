@@ -1,6 +1,4 @@
 import { Request, Response } from "express";
-import { UsageLog } from "../models/usageLog.model";
-import { Consent } from "../models/consent.model";
 
 export const saveUsageLogs = async (req: Request, res: Response) => {
   try {
@@ -12,11 +10,11 @@ export const saveUsageLogs = async (req: Request, res: Response) => {
     }
 
 
-    const usaageLog = UsageLog.find({
+    const usaageLog = (req as any).UsageLog.find({
       userId
     })
     // Check consent
-    const consent = await Consent.findOne({ userId });
+    const consent = await (req as any).Consent.findOne({ userId });
     if (!consent || !consent.appUsage) {
       return res.status(403).json({ error: "User has not consented to usage tracking" });
     }
@@ -25,7 +23,7 @@ export const saveUsageLogs = async (req: Request, res: Response) => {
       ...log,
       userId,
     }));
-await UsageLog.insertMany(logsWithUser);
+await (req as any).UsageLog.insertMany(logsWithUser);
 
     res.status(201).json({ message: "Usage logs saved" });
   } catch (err) {

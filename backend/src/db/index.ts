@@ -17,32 +17,21 @@ export const getDbConnection = (appId: string = 'app1'): mongoose.Connection => 
         return connections[appId];
     }
 
-    const baseUri = process.env.MONGODB_URI;
-    if (!baseUri) throw new Error("Missing MONGODB_URI");
-
-    // Create different database names for different apps
-    const dbName = appId === 'app2' ? 'chatapp_lite' : 'chatapp';
+    // Get the correct URI based on app ID
+    let uri: string;
+    if (appId === 'app2') {
+        uri = process.env.MONGODB_URI2 || '';
+        if (!uri) throw new Error("Missing MONGODB_URI2 for App2");
+    } else {
+        uri = process.env.MONGODB_URI || '';
+        if (!uri) throw new Error("Missing MONGODB_URI for App1");
+    }
     
-    // Replace the database name in URI
-    const uri = baseUri.replace(/\/[^/?]+(\?|$)/, `/${dbName}$1`);
-    
-    console.log(`📱 Creating database connection for ${appId}: ${dbName}`);
+    console.log(`📱 Creating database connection for ${appId}: ${uri}`);
     
     // Create new connection for this app
     const connection = mongoose.createConnection(uri);
     connections[appId] = connection;
     
     return connection;
-};
-
-// Helper to get models for specific app
-export const getAppModels = (appId: string) => {
-    const connection = getDbConnection(appId);
-    return {
-        connection,
-        // Models will be created using this connection
-        User: connection.model('User'),
-        Chat: connection.model('Chat'),
-        // Add other models as needed
-    };
 };

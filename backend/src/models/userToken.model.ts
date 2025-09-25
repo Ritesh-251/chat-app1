@@ -70,3 +70,7 @@ userTokenSchema.pre('save', async function(next) {
 const UserToken = mongoose.model<IUserToken>('UserToken', userTokenSchema);
 
 export default UserToken;
+
+// Export schema for dynamic database connections
+export { userTokenSchema };
+export type { IUserToken };

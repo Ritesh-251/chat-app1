@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/Apierror";
-import Chat from "../models/chat.model";
 import { Types } from "mongoose";
 import { generateAIResponse, generateAIResponseStream } from "../services/openai.service";
 
@@ -27,6 +26,9 @@ function truncateConversationHistory(messages: any[], maxMessages: number = 20):
  * Research Value: Natural conversation flow analysis
  */
 export const startChatWithMessage = asyncHandler(async (req: Request, res: Response) => {
+    // Use app-specific models
+    const Chat = (req as any).Chat;
+    
     const { message } = req.body;
     const userId = (req as any).user._id;
 
@@ -47,7 +49,8 @@ export const startChatWithMessage = asyncHandler(async (req: Request, res: Respo
     try {
         autoTitle = await generateAIResponse(
             [{ role: "user", content: titlePrompt }],
-            userId.toString()
+            userId.toString(),
+            req.appId
         );
 
         // In case AI generates something too long, fallback to first 50 chars
@@ -62,25 +65,19 @@ export const startChatWithMessage = asyncHandler(async (req: Request, res: Respo
     }
 
     // Create chat with the first user message
-    const newChat = await Chat.create({
-        userId: new Types.ObjectId(userId),
-        title: autoTitle,
-        messages: [{
-            role: 'user',
-            content: message.trim(),
-            timestamp: new Date()
-        }],
-        isActive: true
-    });
-
-    // Generate AI response
+    const newChat = await (req as any).Chat.create({
+      userId,
+      title: autoTitle || "New Chat",
+      messages: [],
+      totalMessages: 0,
+    });    // Generate AI response
     try {
         // For new chats, we only have one message, but use truncation for consistency
         const conversationHistory = truncateConversationHistory([
             { role: 'user' as const, content: message.trim() }
         ]);
         
-        const aiResponse = await generateAIResponse(conversationHistory, userId.toString());
+        const aiResponse = await generateAIResponse(conversationHistory, userId.toString(), req.appId, (req as any).ChatbotProfile);
         
         // Add AI response to the chat
         newChat.messages.push({
@@ -128,13 +125,16 @@ export const startChatWithMessage = asyncHandler(async (req: Request, res: Respo
  * Research Value: Analyze conversation patterns and academic engagement
  */
 export const getUserChats = asyncHandler(async (req: Request, res: Response) => {
+    // Use app-specific models
+    const Chat = (req as any).Chat;
+    
     const userId = (req as any).user._id; // User added by auth middleware
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
     // Find all chats for the user with pagination
-    const chats = await Chat.find({ 
+    const chats = await (req as any).Chat.find({ 
         userId: new Types.ObjectId(userId),
         isActive: true 
     })
@@ -144,7 +144,7 @@ export const getUserChats = asyncHandler(async (req: Request, res: Response) => 
     .limit(limit);
 
     // Get total count for pagination
-    const totalChats = await Chat.countDocuments({ 
+    const totalChats = await (req as any).Chat.countDocuments({ 
         userId: new Types.ObjectId(userId),
         isActive: true 
     });
@@ -174,7 +174,7 @@ export const getMostRecentChat = asyncHandler(async (req: Request, res: Response
     const userId = (req as any).user._id;
 
     // Find the most recently updated chat for the user
-    const recentChat = await Chat.findOne({ 
+    const recentChat = await (req as any).Chat.findOne({ 
         userId: new Types.ObjectId(userId),
         isActive: true 
     })
@@ -228,7 +228,7 @@ export const getChatById = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Find chat and verify ownership
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: true
@@ -279,7 +279,7 @@ export const addMessage = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Find and verify chat ownership
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: true
@@ -309,7 +309,7 @@ export const addMessage = asyncHandler(async (req: Request, res: Response) => {
     await chat.save();
 
     // Return updated chat
-    const updatedChat = await Chat.findById(chatId);
+    const updatedChat = await (req as any).Chat.findById(chatId);
 
     return res.status(200).json({
         success: true,
@@ -350,7 +350,7 @@ export const sendMessageWithAI = asyncHandler(async (req: Request, res: Response
     }
 
     // Find and verify chat ownership
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: true
@@ -388,7 +388,7 @@ export const sendMessageWithAI = asyncHandler(async (req: Request, res: Response
             content: msg.content
         }));
         
-        const aiResponse = await generateAIResponse(conversationHistory, userId.toString());
+        const aiResponse = await generateAIResponse(conversationHistory, userId.toString(), req.appId, (req as any).ChatbotProfile);
         
         // Add AI response to chat
         chat.messages.push({
@@ -400,7 +400,7 @@ export const sendMessageWithAI = asyncHandler(async (req: Request, res: Response
         await chat.save();
         
         // Return complete conversation
-        const updatedChat = await Chat.findById(chatId);
+        const updatedChat = await (req as any).Chat.findById(chatId);
         
         return res.status(200).json({
             success: true,
@@ -420,7 +420,7 @@ export const sendMessageWithAI = asyncHandler(async (req: Request, res: Response
             success: true,
             message: "Message sent, but AI response failed",
             data: {
-                chat: await Chat.findById(chatId),
+                chat: await (req as any).Chat.findById(chatId),
                 userMessage: message.trim(),
                 error: "AI service temporarily unavailable"
             }
@@ -448,7 +448,7 @@ export const updateChat = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Find and verify chat ownership
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: true
@@ -494,7 +494,7 @@ export const deleteChat = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Find and verify chat ownership
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: true
@@ -554,7 +554,7 @@ export const deleteMessage = asyncHandler(async (req: Request, res: Response) =>
     }
 
     // Find and verify chat ownership
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: true
@@ -565,7 +565,7 @@ export const deleteMessage = asyncHandler(async (req: Request, res: Response) =>
     }
 
     // Find the specific message
-    const messageIndex = chat.messages.findIndex(msg => (msg as any)._id?.toString() === messageId);
+    const messageIndex = chat.messages.findIndex((msg: any) => msg._id?.toString() === messageId);
     
     if (messageIndex === -1) {
         throw new ApiError(404, "Message not found");
@@ -645,7 +645,7 @@ export const setActiveChat = asyncHandler(async (req: Request, res: Response) =>
     }
 
     // Find and verify chat ownership
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: true
@@ -684,7 +684,7 @@ export const autoArchiveOldChats = asyncHandler(async (req: Request, res: Respon
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
     
     // Find chats that haven't been updated in X days
-    const oldChats = await Chat.updateMany(
+    const oldChats = await (req as any).Chat.updateMany(
         {
             userId: new Types.ObjectId(userId),
             isActive: true,
@@ -731,7 +731,7 @@ export const archiveChat = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Find and verify chat ownership
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: true
@@ -777,7 +777,7 @@ export const restoreChat = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Find archived chat
-    const chat = await Chat.findOne({
+    const chat = await (req as any).Chat.findOne({
         _id: new Types.ObjectId(chatId),
         userId: new Types.ObjectId(userId),
         isActive: false
@@ -828,14 +828,14 @@ export const startChatWithStreamingMessage = asyncHandler(async (req: Request, r
     let autoTitle: string;
 
     try {
-        autoTitle = await generateAIResponse([{ role: "user", content: titlePrompt }], userId.toString());
+        autoTitle = await generateAIResponse([{ role: "user", content: titlePrompt }], userId.toString(), req.appId, (req as any).ChatbotProfile);
     } catch (error) {
         console.warn("Title generation failed, using fallback");
         autoTitle = `Chat ${new Date().toLocaleDateString()}`;
     }
 
     // Create new chat
-    const newChat = new Chat({
+    const newChat = new (req as any).Chat({
         userId: userId,
         title: autoTitle.replace(/['"]/g, '').substring(0, 50), // Clean title
         messages: [{
@@ -862,7 +862,7 @@ export const startChatWithStreamingMessage = asyncHandler(async (req: Request, r
     });
 
     // Stream AI response via WebSocket with app-specific prompt
-    streamAIResponse((newChat._id as any).toString(), message.trim(), userId.toString(), undefined, req.appId);
+    streamAIResponse((newChat._id as any).toString(), message.trim(), userId.toString(), undefined, req.appId, (req as any).Chat, (req as any).ChatbotProfile);
 });
 
 /**
@@ -887,7 +887,7 @@ export const sendStreamingMessage = asyncHandler(async (req: Request, res: Respo
     }
 
     // Find and validate chat
-    const chat = await Chat.findOne({ _id: chatId, userId: userId });
+    const chat = await (req as any).Chat.findOne({ _id: chatId, userId: userId });
     if (!chat) {
         throw new ApiError(404, "Chat not found");
     }
@@ -914,7 +914,7 @@ export const sendStreamingMessage = asyncHandler(async (req: Request, res: Respo
     });
 
     // Stream AI response via WebSocket with app-specific prompt
-    streamAIResponse(chatId, message.trim(), userId.toString(), chat, req.appId);
+    streamAIResponse(chatId, message.trim(), userId.toString(), chat, req.appId, (req as any).Chat, (req as any).ChatbotProfile);
 });
 
 /**
@@ -924,21 +924,27 @@ export const sendStreamingMessage = asyncHandler(async (req: Request, res: Respo
  * @param userId - User ID
  * @param existingChat - Existing chat (optional, for context)
  * @param appId - App ID to determine system prompt
+ * @param ChatModel - Chat model for database operations
+ * @param ChatbotProfileModel - ChatbotProfile model for App1 personalization (optional)
  */
-async function streamAIResponse(chatId: string, userMessage: string, userId: string, existingChat?: any, appId?: string) {
+async function streamAIResponse(chatId: string, userMessage: string, userId: string, existingChat?: any, appId?: string, ChatModel?: any, ChatbotProfileModel?: any) {
     try {
+        console.log(`🔄 streamAIResponse called with chatId: ${chatId}, appId: ${appId}`);
+        
         const socketService = (global as any).socketService;
         if (!socketService) {
             console.error('❌ Socket service not available');
             return;
         }
+        console.log('✅ Socket service found');
 
         // Get chat context if not provided
-        const chat = existingChat || await Chat.findById(chatId);
+        const chat = existingChat || await ChatModel.findById(chatId);
         if (!chat) {
             console.error('❌ Chat not found for streaming');
             return;
         }
+        console.log(`✅ Chat found: ${chat.title}`);
 
         // Prepare conversation history
         const conversationHistory = truncateConversationHistory(
@@ -954,20 +960,27 @@ async function streamAIResponse(chatId: string, userMessage: string, userId: str
         // Start streaming with app-specific system prompt
         console.log(`🚀 Starting AI response stream for chat: ${chatId}, app: ${appId}`);
         
-        const stream = await generateAIResponseStream(conversationHistory, userId, appId);
         let fullResponse = '';
+        try {
+            const stream = await generateAIResponseStream(conversationHistory, userId, appId, ChatbotProfileModel);
+            console.log(`✅ OpenAI stream initialized`);
 
-        // Process stream chunks - send each delta immediately
-        const streamResponse = stream as any;
-        for await (const chunk of streamResponse) {
-            const deltaContent = chunk.choices[0]?.delta?.content || '';
-            if (deltaContent) {
-                fullResponse += deltaContent;
-                
-                // Send only the new delta content immediately
-                // No buffering to prevent repetition
-                socketService.emitAIResponseChunk(chatId, deltaContent, false);
+            // Process stream chunks - send each delta immediately
+            const streamResponse = stream as any;
+            for await (const chunk of streamResponse) {
+                const deltaContent = chunk.choices[0]?.delta?.content || '';
+                if (deltaContent) {
+                    fullResponse += deltaContent;
+                    
+                    // Send only the new delta content immediately
+                    // No buffering to prevent repetition
+                    socketService.emitAIResponseChunk(chatId, deltaContent, false);
+                }
             }
+            console.log(`✅ OpenAI streaming completed, total length: ${fullResponse.length}`);
+        } catch (streamError) {
+            console.error('❌ OpenAI streaming error:', streamError);
+            throw streamError;
         }
         
         // Send completion signal (no additional content)

@@ -1,5 +1,3 @@
-import ChatbotProfile from "../models/chatbotProfile.model";
-
 interface SystemPromptConfig {
     personality: string;
     role: string;
@@ -12,11 +10,17 @@ class SystemPromptService {
     /**
      * Generate personalized system prompt based on user's chatbot profile
      * @param userId - User ID to fetch profile
+     * @param ChatbotProfileModel - App-specific ChatbotProfile model (optional, only for App1)
      * @returns Customized system prompt string
      */
-    async generateSystemPrompt(userId: string): Promise<string> {
+    async generateSystemPrompt(userId: string, ChatbotProfileModel?: any): Promise<string> {
         try {
-            const profile = await ChatbotProfile.findOne({ userId });
+            // If no ChatbotProfile model provided (App2), return default
+            if (!ChatbotProfileModel) {
+                return this.getDefaultSystemPrompt();
+            }
+            
+            const profile = await ChatbotProfileModel.findOne({ userId });
             
             if (!profile) {
                 return this.getDefaultSystemPrompt();

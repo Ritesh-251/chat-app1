@@ -1,4 +1,3 @@
-import User from "../models/user.model";
 import { Request, Response ,NextFunction} from "express";
 import { ApiError } from "../utils/Apierror";
 import jwt from "jsonwebtoken";
@@ -25,7 +24,14 @@ const jwtVerification = async (req:Request,res:Response,next: NextFunction) =>{
         }
         
         const decodedToken = jwt.verify(token,process.env.ACCESS_TOKEN_SECRET as string) as { _id: string };
-        const user = await User.findById(decodedToken?._id);
+        
+        // Use app-specific User model from database middleware
+        const UserModel = (req as any).User;
+        if (!UserModel) {
+            throw new ApiError(500, "Database models not initialized - ensure database middleware runs first");
+        }
+        
+        const user = await UserModel.findById(decodedToken?._id);
          if(!user){
          throw new ApiError(401,"Invalid access token - user not found");
          }

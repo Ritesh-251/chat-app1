@@ -119,4 +119,7 @@ chatSchema.statics.getUserAllChats = function(userId: string) {
 };
 
 const Chat = model<IChat>('Chat', chatSchema);
+
+// Export both the model and schema for app-specific database connections
+export { chatSchema };
 export default Chat;

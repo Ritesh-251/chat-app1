@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/chat_service.dart';
 
@@ -23,12 +25,22 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
   List<ChatSession> _chats = [];
   bool _isLoading = true;
   String? _currentChatId;
+  StreamSubscription<String?>? _currentChatSub;
 
   @override
   void initState() {
     super.initState();
     _loadChatHistory();
     _currentChatId = _chatService.currentChatId;
+    // Listen for current chat changes to refresh drawer automatically
+    _currentChatSub = _chatService.currentChatStream.listen((chatId) {
+      if (!mounted) return;
+      setState(() {
+        _currentChatId = chatId;
+      });
+      // Refresh chat list to pick up new auto-generated titles
+      _loadChatHistory();
+    });
   }
 
   Future<void> _deleteChat(String chatId, String title) async {
@@ -222,6 +234,12 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> {
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _currentChatSub?.cancel();
+    super.dispose();
   }
 
   String _formatTimestamp(DateTime timestamp) {

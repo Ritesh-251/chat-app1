@@ -7,6 +7,7 @@ import 'chat_screen.dart';
 import 'login_screen.dart';
 import 'dart:ui'; // For ImageFilter
 import 'package:google_fonts/google_fonts.dart';
+import '../services/chat_service.dart';
 
 
 //
@@ -47,6 +48,16 @@ class _ChatbotProfileScreenState extends State<ChatbotProfileScreen> {
       final response = await ApiService.instance.saveChatbotProfile(body);
       
       if (response['ok'] == true) {
+        // Update chat title in ChatService based on selected gender
+        if (_selectedGender != null) {
+          // Use display name from genders list
+          final displayName = genders.firstWhere(
+            (g) => g["apiValue"] == _selectedGender,
+            orElse: () => {"display": "AI Chat Assistant"},
+          )["display"] as String;
+          // Set the chat title for the next chat session via ChatService API
+          ChatService.instance.setCurrentChatTitle(displayName);
+        }
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, ChatScreen.route);
       } else {
