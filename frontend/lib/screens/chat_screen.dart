@@ -30,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _appUsageConsent = false;
   
+  
   // Stream subscriptions for proper disposal
   StreamSubscription? _streamingMessageSubscription;
   StreamSubscription? _messagesSubscription;
@@ -208,7 +209,19 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.clear();
     setState(() {
       _isLoading = true;
-    });
+    }
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+  if (_scrollController.hasClients) {
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+});
+
 
     try {
       final aiResponse = await _chatService.sendMessage(text);
@@ -310,94 +323,84 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildChatInputBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.transparent, // Consistent with gradient background
-        border: Border(
-          top: BorderSide(
-            color: Colors.white.withOpacity(0.3),
-            width: 0.5,
-          ),
-        ),
+  return SafeArea(
+    child: Padding(
+      padding: EdgeInsets.only(
+        left: 8.0,
+        right: 8.0,
+        bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 8.0 : 8.0,
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: 8.0,
-            right: 8.0,
-            top: 8.0,
-            bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 8.0 : 8.0,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Input field
-              Expanded(
-                child: Container(
-                  constraints: const BoxConstraints(
-                    maxHeight: 120, // Limit max height for multiline
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Input field
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(
+                maxHeight: 120, // Limit max height for multiline
+              ),
+              child: TextField(
+                controller: _controller,
+                enabled: !_isLoading,
+                decoration: InputDecoration(
+                  hintText: "Type a message...",
+                  filled: true,
+                  fillColor: Colors.white,  // 👈 back to clean white
+                  contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
-                  child: TextField(
-                    controller: _controller,
-                    enabled: !_isLoading,
-                    decoration: InputDecoration(
-                      hintText: "Type a message...",
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 16),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: const BorderSide(color: Color(0xFF3E6C42), width: 2),
-                      ),
-                    ),
-                    minLines: 1,
-                    maxLines: 5,
-                    keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.newline,
-                    onSubmitted: (_) => _sendMessage(),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: const BorderSide(
+                        color: Color(0xFF3E6C42), width: 2),
                   ),
                 ),
+                minLines: 1,
+                maxLines: 5,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                onSubmitted: (_) => _sendMessage(),
               ),
-
-              const SizedBox(width: 8),
-
-              // Send button
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.green.shade700, // Using your app's green theme
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: _isLoading 
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send, color: Colors.white, size: 22),
-                  onPressed: _isLoading ? null : _sendMessage,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
 
-  @override
+          const SizedBox(width: 8),
+
+          // Send button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.green.shade700,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.send, color: Colors.white, size: 22),
+              onPressed: _isLoading ? null : _sendMessage,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+
+ /*@override
   Widget build(BuildContext context) {
     final messages = _chatService.messages;
 
@@ -437,7 +440,7 @@ class _ChatScreenState extends State<ChatScreen> {
         onNewChat: _startNewChat,
         onChatDeleted: _onChatDeleted,
       ),
-      body: Column(
+      body: Column( 
         children: [
           // Main chat area with gradient background
           Expanded(
@@ -507,16 +510,144 @@ class _ChatScreenState extends State<ChatScreen> {
                         dotColor: Color(0xFF3E6C42),
                       ),
                     ),
+
+                _buildChatInputBar(),
+
+
+
                 ],
               ),
             ),
           ),
           // Input area outside the gradient
-          _buildChatInputBar(),
+          //_buildChatInputBar(),
         ],
       ),
     );  // Close the Scaffold
-  }
+  }*/
+
+  @override
+Widget build(BuildContext context) {
+  final messages = _chatService.messages;
+
+  return Scaffold(
+    resizeToAvoidBottomInset: true,
+    extendBodyBehindAppBar: true,
+    appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      title: Text(
+        _chatService.currentChatTitle ?? 'AI Chat Assistant',
+        style: const TextStyle(color: Colors.white),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: _refreshConnection,
+        ),
+        IconButton(
+          icon: const Icon(Icons.add, color: Colors.white),
+          onPressed: _startNewChat,
+          tooltip: 'New Chat',
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout, color: Colors.white),
+          onPressed: () async {
+            await AuthService.instance.signOut();
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, LoginScreen.route);
+            }
+          },
+        ),
+      ],
+    ),
+    drawer: ChatHistoryDrawer(
+      onChatSelected: _switchToChat,
+      onNewChat: _startNewChat,
+      onChatDeleted: _onChatDeleted,
+    ),
+    body: Stack(
+      children: [
+        // Messages + gradient
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              colors: [
+                Colors.green.shade700,
+                Colors.green.shade300,
+                Colors.limeAccent.shade400,
+              ],
+            ),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 100), // for transparent AppBar offset
+              Expanded(
+                child: messages.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Start a conversation with your AI assistant!\nType a message below to begin.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount:
+                            messages.length + (_chatService.isStreaming ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index < messages.length) {
+                            final msg = messages[index];
+                            final canDelete =
+                                _messageCanDelete[msg.id] ?? false;
+
+                            return ChatBubble(
+                              text: msg.text,
+                              fromUser: msg.isFromUser,
+                              messageId: msg.id,
+                              canDelete: canDelete,
+                              onDelete: canDelete
+                                  ? () => _deleteMessage(msg.id)
+                                  : null,
+                            );
+                          } else if (_chatService.isStreaming) {
+                            return ChatBubble(
+                              text: _currentStreamingText,
+                              fromUser: false,
+                              messageId: 'streaming',
+                              canDelete: false,
+                              isStreaming: _currentStreamingText.isNotEmpty,
+                              isTyping: _currentStreamingText.isEmpty,
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+              ),
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: AIThinkingIndicator(
+                    message: 'AI is thinking...',
+                    dotColor: Color(0xFF3E6C42),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // Input bar pinned at bottom
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: _buildChatInputBar(),
+        ),
+      ],
+    ),
+  );
+}
+
 
   @override
   void dispose() {
