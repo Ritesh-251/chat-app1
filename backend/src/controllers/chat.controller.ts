@@ -132,6 +132,8 @@ export const getUserChats = asyncHandler(async (req: Request, res: Response) => 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
+    // Debug: log which app and user are requesting chats
+    console.log(`📥 getUserChats called - appId=${req.appId} userId=${userId} page=${page} limit=${limit}`);
 
     // Find all chats for the user with pagination
     const chats = await (req as any).Chat.find({ 

@@ -30,6 +30,8 @@ class AuthService {
   final _authStateController = StreamController<User?>.broadcast();
   User? _currentUser;
   Timer? _refreshTimer;
+  int _refreshRetryCount = 0;
+  static const int _maxRefreshRetries = 3;
 
   Stream<User?> get authChanges => _authStateController.stream;
   User? get currentUser => _currentUser;
@@ -149,8 +151,9 @@ class AuthService {
     try {
       print('🔄 Attempting token refresh...');
       final response = await _apiService.refreshToken();
-      
+
       if (response['ok'] == true) {
+        _refreshRetryCount = 0;
         // Update user with new tokens
         final newExpiry = _calculateTokenExpiry();
         _currentUser = User(
@@ -159,20 +162,40 @@ class AuthService {
           refreshToken: response['refreshToken'],
           tokenExpiry: newExpiry
         );
-        
+
         await _saveUserSession(_currentUser!);
         _authStateController.add(_currentUser);
         _scheduleTokenRefresh();
-        
+
         print('✅ Token refreshed successfully');
       } else {
-        print('❌ Token refresh failed: ${response['message']}');
-        // If refresh fails, logout the user
-        await signOut();
+        final msg = (response['message'] ?? '').toString();
+        if (msg.contains('401') || msg.toLowerCase().contains('unauthorized') || msg.toLowerCase().contains('invalid')) {
+          print('🔒 Refresh rejected by server: $msg — signing out');
+          await signOut();
+          return;
+        }
+
+        _refreshRetryCount += 1;
+        if (_refreshRetryCount <= _maxRefreshRetries) {
+          final backoffMs = 1000 * (_refreshRetryCount * 2);
+          print('⚠️ Refresh failed (transient). Retry #${_refreshRetryCount} in ${backoffMs}ms');
+          Future.delayed(Duration(milliseconds: backoffMs), () => _attemptTokenRefresh());
+        } else {
+          print('❌ Refresh failed after $_refreshRetryCount attempts. Signing out.');
+          await signOut();
+        }
       }
     } catch (e) {
-      print('❌ Token refresh error: $e');
-      await signOut();
+      _refreshRetryCount += 1;
+      if (_refreshRetryCount <= _maxRefreshRetries) {
+        final backoffMs = 1000 * (_refreshRetryCount * 2);
+        print('⚠️ Token refresh exception (transient): $e. Retry #${_refreshRetryCount} in ${backoffMs}ms');
+        Future.delayed(Duration(milliseconds: backoffMs), () => _attemptTokenRefresh());
+      } else {
+        print('❌ Token refresh exception after $_refreshRetryCount attempts: $e. Signing out.');
+        await signOut();
+      }
     }
   }
 
@@ -268,7 +291,8 @@ class AuthService {
   }
 
   /// Check if current user token is still valid
-  Future<bool> isTokenValid() async {
+  /// Returns: true = valid, false = invalid, null = transient/unknown (don't logout)
+  Future<bool?> isTokenValid() async {
     if (_currentUser == null || _currentUser!.token.isEmpty) {
       return false;
     }
@@ -276,10 +300,25 @@ class AuthService {
     try {
       // Try to make a simple API call to verify token
       final response = await _apiService.getUserChats(page: 1, limit: 1);
-      return response['ok'] == true;
+
+      if (response['ok'] == true) return true;
+
+      final msg = (response['message'] ?? '').toString();
+      if (msg.toLowerCase().contains('network error')) {
+        print('⚠️ Token validation transient/network error: $msg');
+        return null;
+      }
+
+      if (msg.contains('401') || msg.toLowerCase().contains('unauthorized') || msg.toLowerCase().contains('invalid')) {
+        print('🔒 Token invalid according to server: $msg');
+        return false;
+      }
+
+      print('⚠️ Token validation non-ok but non-auth error: $msg');
+      return null;
     } catch (e) {
-      print('❌ Token validation failed: $e');
-      return false;
+      print('❌ Token validation exception (transient): $e');
+      return null;
     }
   }
 
@@ -287,9 +326,13 @@ class AuthService {
   Future<void> validateSession() async {
     if (_currentUser != null) {
       final isValid = await isTokenValid();
-      if (!isValid) {
-        print('🔐 Session expired, logging out user');
+      if (isValid == false) {
+        print('🔐 Session invalid, logging out user');
         await signOut();
+      } else if (isValid == null) {
+        print('⚠️ Session validation unknown (transient). Keeping user logged in');
+      } else {
+        print('🔒 Session valid');
       }
     }
   }

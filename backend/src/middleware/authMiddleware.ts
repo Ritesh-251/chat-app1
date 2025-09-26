@@ -24,7 +24,14 @@ const jwtVerification = async (req:Request,res:Response,next: NextFunction) =>{
         }
         
         const decodedToken = jwt.verify(token,process.env.ACCESS_TOKEN_SECRET as string) as { _id: string };
-        
+
+        // Debug: log minimal token/auth info to help diagnose cross-app auth issues
+        try {
+            console.log(`🔐 JWT verify - appId=${(req as any).appId || 'unknown'}, tokenPresent=${!!token}, decodedId=${decodedToken?._id || 'none'}`);
+        } catch (e) {
+            // ignore logging errors
+        }
+
         // Use app-specific User model from database middleware
         const UserModel = (req as any).User;
         if (!UserModel) {
@@ -33,8 +40,11 @@ const jwtVerification = async (req:Request,res:Response,next: NextFunction) =>{
         
         const user = await UserModel.findById(decodedToken?._id);
          if(!user){
-         throw new ApiError(401,"Invalid access token - user not found");
+             console.warn(`⚠️ Auth failed - token matched id=${decodedToken?._id} but no user found in DB for appId=${(req as any).appId}`);
+             throw new ApiError(401,"Invalid access token - user not found");
          }
+         // Debug: show successful auth mapping
+         console.log(`✅ Authenticated user for appId=${(req as any).appId}: userId=${user._id}`);
          (req as any).user = user;
          next();
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'auth_service.dart';
+import 'api_service.dart';
 
 class WebSocketService {
   WebSocketService._();
@@ -66,7 +67,9 @@ class WebSocketService {
       print('🔌 Connecting to WebSocket server...');
       
       _manualDisconnect = false;
-      _socket = IO.io('http://10.149.195.16:8000', <String, dynamic>{
+  // Use the centralized ApiService.baseUrl so HTTP and WS targets match
+  final wsUrl = ApiService.baseUrl; // socket_io_client accepts the http URL
+  _socket = IO.io(wsUrl, <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
         'auth': {'token': token, 'appId': 'app2'},

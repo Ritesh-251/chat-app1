@@ -54,22 +54,27 @@ class SocketService {
                 return next(new Error('Authentication error: No token provided'));
             }
 
-            // Determine appId from handshake early so we authenticate against the correct DB
-            // Accept appId from auth payload (preferred), then headers, then query
-            const appId = socket.handshake.auth?.appId || socket.handshake.headers['x-app-id'] || socket.handshake.query.appId || 'app1';
-            const authSource = socket.handshake.auth?.appId ? 'auth.payload' : (socket.handshake.headers['x-app-id'] ? 'headers' : (socket.handshake.query.appId ? 'query' : 'default'));
+            // Try to decode token without verification first to get appId (so we can select the right DB)
+            const unverified = jwt.decode(token) as any || {};
+            const tokenAppId = unverified?.appId;
+
+            // Determine appId: prefer appId embedded in token, then handshake headers/query, then default
+            const handshakeAppId = socket.handshake.auth?.appId || socket.handshake.headers['x-app-id'] || socket.handshake.query.appId;
+            const appId = tokenAppId || handshakeAppId || 'app1';
+            const authSource = tokenAppId ? 'token.payload' : (socket.handshake.auth?.appId ? 'auth.payload' : (socket.handshake.headers['x-app-id'] ? 'headers' : (socket.handshake.query.appId ? 'query' : 'default')));
             (socket as any).appId = appId;
 
             // Mask token for logs
             const maskedToken = typeof token === 'string' ? `${token.substring(0, Math.min(12, token.length))}...(${token.length} chars)` : 'non-string-token';
-            console.log(`🔐 Socket auth attempt - appId: ${appId} (source: ${authSource}), token: ${maskedToken}`);
+            console.log(`🔐 Socket auth attempt - chosen appId: ${appId} (source: ${authSource}), token: ${maskedToken}`);
 
             // Use the app-specific DB connection and model to look up the user
             const connection = getDbConnection(appId as string);
             const UserModel = connection.model('User', userSchema);
 
+            // Now verify the token with the secret
             const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string) as any;
-            console.log(`🔎 Token decoded - _id: ${decoded?._id}`);
+            console.log(`🔎 Token verified - _id: ${decoded?._id}, appId: ${decoded?.appId}`);
 
             const user = await UserModel.findById(decoded._id);
 

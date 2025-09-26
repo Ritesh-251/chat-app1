@@ -87,11 +87,28 @@ export async function generateAIResponse(
       model: DEFAULT_MODEL,
       messages: formattedMessages,
       temperature: DEFAULT_TEMPERATURE,
-      max_tokens: 1000, // Reasonable limit for academic responses
+      // Newer OpenAI models (and proxies) expect 'max_completion_tokens' instead of 'max_tokens'
+      max_completion_tokens: 1000, // Reasonable limit for academic responses
     };
 
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create(requestParams);
+    // Debug: log model and snippet of system prompt to help diagnose prompt/model mismatches
+    console.log(`🧾 OpenAI call (non-stream) - model=${DEFAULT_MODEL}, prompt_snippet=${systemPrompt.slice(0,60).replace(/\n/g,' ')}...`);
+
+    // Call OpenAI API; if the API rejects the token-limit param for this model, retry without it
+    let completion: any;
+    try {
+      completion = await openai.chat.completions.create(requestParams);
+    } catch (err: any) {
+      const message = err?.error?.message || err?.message || '';
+      if (message.includes("'max_tokens'") || message.includes('max_tokens') || err?.param === 'max_tokens') {
+        console.warn("OpenAI rejected 'max_tokens' param; retrying without token limit param");
+        // Remove token limit and retry
+        delete requestParams.max_completion_tokens;
+        completion = await openai.chat.completions.create(requestParams);
+      } else {
+        throw err;
+      }
+    }
 
     // Extract response
     const aiResponse = completion.choices[0]?.message?.content;
@@ -161,17 +178,32 @@ export async function generateAIResponseStream(
       model: DEFAULT_MODEL,
       messages: formattedMessages,
       temperature: DEFAULT_TEMPERATURE,
-      max_tokens: 1000,
+      // prefer max_completion_tokens for newer models
+      max_completion_tokens: 1000,
       stream: true, // Enable streaming
     };
+
+    console.log(`🧾 OpenAI call (stream) - model=${DEFAULT_MODEL}, prompt_snippet=${systemPrompt.slice(0,60).replace(/\n/g,' ')}...`);
 
     // Add user ID if provided
     if (userId) {
       streamParams.user = userId;
     }
 
-    // Create streaming completion
-    const stream = await openai.chat.completions.create(streamParams);
+    // Create streaming completion (with fallback if token param not supported)
+    let stream: any;
+    try {
+      stream = await openai.chat.completions.create(streamParams);
+    } catch (err: any) {
+      const message = err?.error?.message || err?.message || '';
+      if (message.includes("'max_tokens'") || message.includes('max_tokens') || err?.param === 'max_tokens') {
+        console.warn("OpenAI rejected 'max_tokens' param for streaming; retrying without token limit param");
+        delete streamParams.max_completion_tokens;
+        stream = await openai.chat.completions.create(streamParams);
+      } else {
+        throw err;
+      }
+    }
 
     return stream;
 

@@ -25,6 +25,8 @@ app.use(cors({
 app.use((req, res, next) => {
   const appId = req.headers['x-app-id'] as string || 'app1';
   req.appId = appId; // Add appId to request object
+  // Debug: log appId for incoming requests to help diagnose app routing
+  console.log(`➡️ Incoming REST request: ${req.method} ${req.path} - appId=${appId}`);
   next();
 });
 

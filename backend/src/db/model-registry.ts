@@ -8,6 +8,7 @@ import { ConsentSchema } from "../models/consent.model";
 import { UsageLogSchema } from "../models/usageLog.model";
 import { ChatbotProfileSchema } from "../models/chatbotProfile.model";
 import { userTokenSchema } from "../models/userToken.model";
+import { TokenSchema } from "../models/token.model";
 
 // Registry to track which models exist for which connections
 const modelRegistry: { [key: string]: { [modelName: string]: mongoose.Model<any> } } = {};
@@ -60,6 +61,10 @@ export function getUserTokenModel(appId: string = 'app1') {
     return getModel('UserToken', userTokenSchema, appId);
 }
 
+export function getTokenModel(appId: string = 'app1') {
+    return getModel('Token', TokenSchema, appId);
+}
+
 // Generic function to get any model by name
 export function getAppModel(modelName: string, appId: string = 'app1') {
     const schemaMap: { [key: string]: mongoose.Schema } = {
@@ -69,6 +74,7 @@ export function getAppModel(modelName: string, appId: string = 'app1') {
         'UsageLog': UsageLogSchema,
         'ChatbotProfile': ChatbotProfileSchema,
         'UserToken': userTokenSchema,
+        'Token': TokenSchema,
     };
     
     const schema = schemaMap[modelName];

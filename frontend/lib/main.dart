@@ -110,7 +110,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   // Send token to backend (new)
   if (token != null) {
-    await NotificationService.sendTokenToBackend(token);
+    await NotificationService.sendTokenToBackend(token, appId: 'app1');
   }
 
   // Foreground message listener

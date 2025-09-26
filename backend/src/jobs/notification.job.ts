@@ -1,6 +1,9 @@
 import cron from "node-cron";
 import admin from "../firebase";
-import Token from "../models/token";
+import { getDbConnection } from '../db/index.js';
+
+// Determine apps to target via env or default list
+const APP_IDS: string[] = (process.env.APP_IDS && process.env.APP_IDS.split(',')) || ['app1', 'app2'];
 
 const notificationMessages = [
   "📚 Ready for a quick study boost? Let’s go!",
@@ -59,8 +62,28 @@ cron.schedule("0 20 * * *", async () => {
 //cron.schedule("*/10 * * * * *", async () => {
   console.log("⏰ Running daily notification job...");
 
-  const tokens = await Token.find({});
-  for (const user of tokens) {
-    await sendNotificationToToken(user.token);
+  for (const appId of APP_IDS) {
+    try {
+      const conn = getDbConnection(appId);
+      // If Token model exists in per-app DB, use it. Otherwise skip.
+      let TokenModel;
+      try {
+        TokenModel = conn.model('Token');
+      } catch (err) {
+        console.warn(`⚠️ No Token model for ${appId}, skipping token-based notifications`);
+        TokenModel = null;
+      }
+
+      if (TokenModel) {
+        const tokens = await TokenModel.find({});
+        for (const user of tokens) {
+          await sendNotificationToToken(user.token);
+        }
+      } else {
+        console.log(`ℹ️ ${appId}: No persistent token storage found, skipping.`);
+      }
+    } catch (err) {
+      console.error(`❌ Error while sending notifications for ${appId}:`, err);
+    }
   }
 });

@@ -3,6 +3,7 @@ import Admin from "../models/admin.model";
 import User from "../models/user.model";
 import Chat from "../models/chat.model";
 import { UsageLog } from "../models/usageLog.model";
+import { getUserModel, getChatModel, getUsageLogModel } from '../db/model-registry';
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/Apierror";
 import * as XLSX from 'xlsx';
@@ -422,31 +423,52 @@ export const exportData = asyncHandler(async (req: Request, res: Response) => {
 
     try {
         let data: any = {};
+        // Aggregate data across configured app DBs
+        const APP_IDS: string[] = (process.env.APP_IDS && process.env.APP_IDS.split(',')) || ['app1', 'app2'];
 
+        let combinedUsers: any[] = [];
+        let combinedChats: any[] = [];
+        let combinedUsageLogs: any[] = [];
 
-        // Get all students
-        const students = await User.find().lean();
-        // Get all chats with user and messages
-        const chats = await Chat.find({ status: { $ne: 'user-deleted' } })
-            .populate('userId', 'name email batch course country')
-            .select('messages createdAt updatedAt flagged flagReason userId')
-            .lean();
-        // Get all usage logs - only include user ID without populating
-        const usageLogs = await UsageLog.find().lean();
+        for (const appId of APP_IDS) {
+            try {
+                const UserModel = getUserModel(appId);
+                const ChatModel = getChatModel(appId);
+                const UsageModel = getUsageLogModel(appId);
+
+                const users = await UserModel.find().lean();
+                const chats = await ChatModel.find({ status: { $ne: 'user-deleted' } })
+                    .populate('userId', 'name email batch course country')
+                    .select('messages createdAt updatedAt flagged flagReason userId')
+                    .lean();
+                const usageLogs = await UsageModel.find().lean();
+
+                // Tag records with appId if desired
+                combinedUsers = combinedUsers.concat(users.map(u => ({ ...u, _appId: appId })));
+                combinedChats = combinedChats.concat(chats.map(c => ({ ...c, _appId: appId })));
+                combinedUsageLogs = combinedUsageLogs.concat(usageLogs.map(l => ({ ...l, _appId: appId })));
+            } catch (err: any) {
+                console.warn(`⚠️ Skipping app ${appId} during export:`, err?.message || err);
+            }
+        }
+
+        const students = combinedUsers;
+        const chats = combinedChats;
+        const usageLogs = combinedUsageLogs;
 
         // Build Students sheet
       // ---------- Students ----------
 const studentsSheet = students.map((u) => ({
-  UserID: u._id.toString() || "",
-  Batch: u.batch || "",
-  Course: u.course || "",
-  Country: u.country || "",
-  ChatCount: chats.filter(
-    (c) =>
-      c.userId &&
-      typeof c.userId === "object" &&
-      (c.userId as any)._id.equals(u._id)
-  ).length,
+    Usermail: u.email || "",
+    Batch: u.batch || "",
+    Course: u.course || "",
+    Country: u.country || "",
+    ChatCount: chats.filter(
+        (c) =>
+            c.userId &&
+            typeof c.userId === "object" &&
+            (c.userId as any)._id.equals(u._id)
+    ).length,
   LastActivity: (() => {
     const userChats = chats.filter(
       (c) =>
@@ -493,7 +515,7 @@ const chatsSheet = chats.map((c) => {
         let messagesSheet: any[] = [];
         chats.forEach((c) => {
             if (Array.isArray(c.messages)) {
-                c.messages.forEach((m, idx) => {
+                c.messages.forEach((m: any, idx: number) => {
                     messagesSheet.push({
                         MessageID: m._id?.toString() || `${c._id}-${idx}`,
                         ChatID: c._id?.toString() || '',

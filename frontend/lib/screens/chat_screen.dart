@@ -567,84 +567,79 @@ Widget build(BuildContext context) {
       onChatDeleted: _onChatDeleted,
     ),
     body: Stack(
-      children: [
-        // Messages + gradient
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              colors: [
-                Colors.green.shade700,
-                Colors.green.shade300,
-                Colors.limeAccent.shade400,
-              ],
-            ),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 100), // for transparent AppBar offset
-              Expanded(
-                child: messages.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Start a conversation with your AI assistant!\nType a message below to begin.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount:
-                            messages.length + (_chatService.isStreaming ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index < messages.length) {
-                            final msg = messages[index];
-                            final canDelete =
-                                _messageCanDelete[msg.id] ?? false;
-
-                            return ChatBubble(
-                              text: msg.text,
-                              fromUser: msg.isFromUser,
-                              messageId: msg.id,
-                              canDelete: canDelete,
-                              onDelete: canDelete
-                                  ? () => _deleteMessage(msg.id)
-                                  : null,
-                            );
-                          } else if (_chatService.isStreaming) {
-                            return ChatBubble(
-                              text: _currentStreamingText,
-                              fromUser: false,
-                              messageId: 'streaming',
-                              canDelete: false,
-                              isStreaming: _currentStreamingText.isNotEmpty,
-                              isTyping: _currentStreamingText.isEmpty,
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-              ),
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: AIThinkingIndicator(
-                    message: 'AI is thinking...',
-                    dotColor: Color(0xFF3E6C42),
-                  ),
-                ),
-            ],
-          ),
+  children: [
+    // Gradient background
+    Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          colors: [
+            Colors.green.shade700,
+            Colors.green.shade300,
+            Colors.limeAccent.shade400,
+          ],
         ),
-
-        // Input bar pinned at bottom
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: _buildChatInputBar(),
-        ),
-      ],
+      ),
     ),
+
+    // Messages list
+    Positioned.fill(
+      top: 100, // offset for transparent AppBar
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 80, // input bar + safe area
+          top: 12,
+        ),
+        itemCount: messages.length + (_chatService.isStreaming ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index < messages.length) {
+            final msg = messages[index];
+            final canDelete = _messageCanDelete[msg.id] ?? false;
+            return ChatBubble(
+              text: msg.text,
+              fromUser: msg.isFromUser,
+              messageId: msg.id,
+              canDelete: canDelete,
+              onDelete: canDelete ? () => _deleteMessage(msg.id) : null,
+            );
+          } else if (_chatService.isStreaming) {
+            return ChatBubble(
+              text: _currentStreamingText,
+              fromUser: false,
+              messageId: 'streaming',
+              canDelete: false,
+              isStreaming: _currentStreamingText.isNotEmpty,
+              isTyping: _currentStreamingText.isEmpty,
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+    ),
+
+    // AI thinking indicator (above input bar)
+    if (_isLoading)
+      Positioned(
+        left: 12,
+        right: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 70, // above input
+        child: const AIThinkingIndicator(
+          message: 'AI is thinking...',
+          dotColor: Color(0xFF3E6C42),
+        ),
+      ),
+
+    // Input bar pinned
+    Align(
+      alignment: Alignment.bottomCenter,
+      child: _buildChatInputBar(),
+    ),
+  ],
+)
+
   );
 }
 

@@ -1,12 +1,8 @@
 import { Request, Response } from "express";
 import admin from "../firebase";
+import { getTokenModel } from '../db/model-registry.js';
 
-// Note: Token model is not implemented yet, using in-memory storage
-// TODO: Create Token model when implementing database storage
-// import Token from "../models/token.model";
-
-// Store FCM tokens (in-memory for now, should be in database)
-const userFCMTokens = new Map<string, string>();
+// Note: Token model is persisted per-app via getTokenModel(appId)
 
 // Predefined messages
 const notificationMessages = [
@@ -47,19 +43,24 @@ export const storeToken = async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
     if (!token) return res.status(400).json({ message: "FCM token required" });
+    // Persist token in per-app DB
+    const appId = (req as any).appId || 'app1';
+    const TokenModel = getTokenModel(appId);
 
-    // Store token in memory (should be stored in database with user ID)
-    const userId = "anonymous"; // Should get from auth middleware
-    userFCMTokens.set(userId, token);
-    
-    console.log(`📱 FCM token stored for user: ${userId}`);
-    console.log(`🔔 Total active tokens: ${userFCMTokens.size}`);
-
-    return res.status(200).json({ 
-      message: "FCM token stored successfully",
-      randomNotificationsActive: true,
-      notificationWindow: "5 PM - 11 PM daily"
-    });
+    try {
+      // Upsert token (avoid duplicates)
+      await TokenModel.findOneAndUpdate({ token }, { token }, { upsert: true, new: true });
+      console.log(`📱 FCM token stored for app: ${appId}`);
+      return res.status(200).json({ 
+        message: "FCM token stored successfully",
+        randomNotificationsActive: true,
+        notificationWindow: "5 PM - 11 PM daily",
+        appId
+      });
+    } catch (err) {
+      console.error('❌ Failed to persist token:', err);
+      return res.status(500).json({ message: 'Failed to persist token' });
+    }
   } catch (error) {
     console.error("❌ Error storing FCM token:", error);
     return res.status(500).json({ message: "Failed to store FCM token" });
@@ -70,15 +71,17 @@ export const notifications = async (req: Request, res: Response) => {
   try {
     const { token } = req.body; 
     if (!token) return res.status(400).json({ message: "FCM token required" });
+    const appId = (req as any).appId || 'app1';
+    const TokenModel = getTokenModel(appId);
 
-    // Store token in memory (should be stored in database with user ID)
-    const userId = "anonymous"; // Should get from auth middleware
-    userFCMTokens.set(userId, token);
-    
-    console.log(`📱 FCM token stored for user: ${userId}`);
-    console.log(`🔔 Total active tokens: ${userFCMTokens.size}`);
-
-    return res.status(200).json({ message: "Token saved!" });
+    try {
+      await TokenModel.findOneAndUpdate({ token }, { token }, { upsert: true, new: true });
+      console.log(`📱 FCM token stored for app: ${appId}`);
+      return res.status(200).json({ message: "Token saved!", appId });
+    } catch (err) {
+      console.error('❌ Error saving token to DB:', err);
+      return res.status(500).json({ message: 'Failed to save token' });
+    }
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Failed to save token" });
@@ -108,9 +111,12 @@ export const testRandomNotification = async (req: Request, res: Response) => {
 // Get stored FCM tokens (for debugging)
 export const getStoredTokens = async (req: Request, res: Response) => {
   try {
+    const appId = (req as any).appId || 'app1';
+    const TokenModel = getTokenModel(appId);
+    const tokens = await TokenModel.find({}).select('token -_id');
     return res.status(200).json({
-      totalTokens: userFCMTokens.size,
-      tokens: Array.from(userFCMTokens.keys()) // Don't expose actual tokens
+      totalTokens: tokens.length,
+      tokens: tokens.map((t: any) => t.token)
     });
   } catch (error) {
     return res.status(500).json({ message: "Failed to get tokens" });
