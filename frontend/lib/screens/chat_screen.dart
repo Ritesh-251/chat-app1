@@ -77,7 +77,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Auto-scroll to bottom of chat
-  void _scrollToBottom() {
+  /*void _scrollToBottom() {
     if (_scrollController.hasClients) {
       // Add a small delay to ensure the UI has updated
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -90,7 +90,36 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
     }
-  }
+  }*/
+
+  void _scrollToBottom({Duration duration = const Duration(milliseconds: 200)}) {
+  // Always schedule a post-frame callback — don't gate by hasClients here.
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    if (!_scrollController.hasClients) return; // check only inside the callback
+
+    try {
+      final pos = _scrollController.position;
+      final target = pos.maxScrollExtent;
+
+      // If already at bottom, skip animation
+      if (pos.pixels == target) return;
+
+      // Animate; if animation fails (e.g. disposed mid-animation) fall back to jump
+      await _scrollController.animateTo(
+        target,
+        duration: duration,
+        curve: Curves.easeOut,
+      );
+    } catch (e) {
+      // Animation may throw if controller got disposed — fallback to jumpTo safe
+      if (_scrollController.hasClients) {
+        try {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        } catch (_) {}
+      }
+    }
+  });
+}
 
   Future<void> _sendUsageLogsIfConsented() async {
     try {
@@ -190,6 +219,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       // Check deletion eligibility for loaded messages
       _checkMessageDeletionEligibility();
+        _scrollToBottom();
     }
   }
 
@@ -273,6 +303,7 @@ class _ChatScreenState extends State<ChatScreen> {
           });
           // Check deletion eligibility for loaded chat messages
           _checkMessageDeletionEligibility();
+          _scrollToBottom();
           
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -348,6 +379,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   fillColor: Colors.white,  // 👈 back to clean white
                   contentPadding: const EdgeInsets.symmetric(
                       vertical: 12, horizontal: 16),
+        
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(25),
                     borderSide: BorderSide(color: Colors.grey.shade300),
@@ -378,6 +410,13 @@ class _ChatScreenState extends State<ChatScreen> {
             decoration: BoxDecoration(
               color: Colors.green.shade700,
               shape: BoxShape.circle,
+               boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3), // stronger shadow than input
+                ),
+              ],
             ),
             child: IconButton(
               icon: _isLoading
@@ -527,14 +566,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }*/
 
   @override
-Widget build(BuildContext context) {
+  Widget build(BuildContext context) {
   final messages = _chatService.messages;
 
   return Scaffold(
     resizeToAvoidBottomInset: true,
-    extendBodyBehindAppBar: true,
+    extendBodyBehindAppBar: false,
     appBar: AppBar(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.green.shade700,
       elevation: 0,
       title: Text(
         _chatService.currentChatTitle ?? 'AI Chat Assistant',
@@ -566,85 +605,75 @@ Widget build(BuildContext context) {
       onNewChat: _startNewChat,
       onChatDeleted: _onChatDeleted,
     ),
-    body: Stack(
-      children: [
-        // Messages + gradient
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              colors: [
-                Colors.green.shade700,
-                Colors.green.shade300,
-                Colors.limeAccent.shade400,
-              ],
-            ),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 100), // for transparent AppBar offset
-              Expanded(
-                child: messages.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Start a conversation with your AI assistant!\nType a message below to begin.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount:
-                            messages.length + (_chatService.isStreaming ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index < messages.length) {
-                            final msg = messages[index];
-                            final canDelete =
-                                _messageCanDelete[msg.id] ?? false;
-
-                            return ChatBubble(
-                              text: msg.text,
-                              fromUser: msg.isFromUser,
-                              messageId: msg.id,
-                              canDelete: canDelete,
-                              onDelete: canDelete
-                                  ? () => _deleteMessage(msg.id)
-                                  : null,
-                            );
-                          } else if (_chatService.isStreaming) {
-                            return ChatBubble(
-                              text: _currentStreamingText,
-                              fromUser: false,
-                              messageId: 'streaming',
-                              canDelete: false,
-                              isStreaming: _currentStreamingText.isNotEmpty,
-                              isTyping: _currentStreamingText.isEmpty,
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-              ),
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: AIThinkingIndicator(
-                    message: 'AI is thinking...',
-                    dotColor: Color(0xFF3E6C42),
-                  ),
-                ),
-            ],
-          ),
-        ),
-
-        // Input bar pinned at bottom
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: _buildChatInputBar(),
-        ),
+   body: Container(
+  /*decoration: BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      colors: [
+        Colors.green.shade700,
+        Colors.green.shade300,
+        Colors.limeAccent.shade400,
       ],
     ),
+  ),*/
+   decoration: BoxDecoration(
+    image: DecorationImage(
+      image: AssetImage("assets/bg_light.png"), // 👈 add in assets
+      //fit: BoxFit.cover,
+      repeat: ImageRepeat.repeat,
+    ),
+  ),
+  child: Column(
+    children: [
+      // Messages list
+      Expanded(
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12).copyWith(bottom: 0),
+          itemCount: messages.length + (_chatService.isStreaming ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index < messages.length) {
+              final msg = messages[index];
+              final canDelete = _messageCanDelete[msg.id] ?? false;
+              return ChatBubble(
+                text: msg.text,
+                fromUser: msg.isFromUser,
+                messageId: msg.id,
+                canDelete: canDelete,
+                onDelete: canDelete ? () => _deleteMessage(msg.id) : null,
+              );
+            } else if (_chatService.isStreaming) {
+              return ChatBubble(
+                text: _currentStreamingText,
+                fromUser: false,
+                messageId: 'streaming',
+                canDelete: false,
+                isStreaming: _currentStreamingText.isNotEmpty,
+                isTyping: _currentStreamingText.isEmpty,
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+
+      // AI typing indicator (sits right above input)
+      if (_isLoading)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 4),
+          child: AIThinkingIndicator(
+            message: 'AI is thinking...',
+            dotColor: Color(0xFF3E6C42),
+          ),
+        ),
+
+      // Input bar
+      _buildChatInputBar(),
+    ],
+  ),
+)
+
+
   );
 }
 

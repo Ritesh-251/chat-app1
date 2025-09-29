@@ -78,7 +78,7 @@ class WebSocketService {
   }
   
   /// Setup event listeners for WebSocket
-  bool _listenersRegistered = false;
+   //bool _listenersRegistered = false;
   void _setupEventListeners() {
     if (_socket == null) return;
     if (_listenersRegistered) {
