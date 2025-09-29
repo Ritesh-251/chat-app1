@@ -34,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   // Stream subscriptions for proper disposal
   StreamSubscription? _streamingMessageSubscription;
   StreamSubscription? _messagesSubscription;
+  StreamSubscription<String?>? _currentChatSubscription;
 
   @override
   void initState() {
@@ -73,6 +74,15 @@ class _ChatScreenState extends State<ChatScreen> {
         // Auto-scroll when new messages are added
         _scrollToBottom();
       }
+    });
+
+    // Listen for current chat changes (id/title updates)
+    _currentChatSubscription?.cancel();
+    _currentChatSubscription = _chatService.currentChatStream.listen((chatId) {
+      if (!mounted) return;
+      setState(() {
+        // Trigger rebuild so AppBar title picks up _chatService.currentChatTitle
+      });
     });
   }
 
@@ -653,6 +663,7 @@ Widget build(BuildContext context) {
     // Cancel stream subscriptions to prevent memory leaks
     _streamingMessageSubscription?.cancel();
     _messagesSubscription?.cancel();
+  _currentChatSubscription?.cancel();
     
     // Don't disconnect WebSocket here as it's shared across screens
     // It will be properly managed by the service lifecycle

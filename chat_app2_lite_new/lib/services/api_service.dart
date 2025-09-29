@@ -9,7 +9,7 @@ class ApiService {
 
   // Backend URL (no stray spaces). Keep this in sync with your websocket host.
   // Using IP address for reliable mobile connection
-  static const String baseUrl = 'http://10.6.192.157:8000';
+  static const String baseUrl = 'http://10.236.213.163:8000';
   
   static const String _tokenKey = 'api_token';
   static const String _refreshTokenKey = 'refresh_token';

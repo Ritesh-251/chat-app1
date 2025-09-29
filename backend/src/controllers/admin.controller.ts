@@ -422,13 +422,24 @@ export const exportData = asyncHandler(async (req: Request, res: Response) => {
     const { type = 'all', format = 'xlsx' } = req.query;
 
     try {
-        let data: any = {};
-        // Aggregate data across configured app DBs
-        const APP_IDS: string[] = (process.env.APP_IDS && process.env.APP_IDS.split(',')) || ['app1', 'app2'];
+        // Determine which app(s) to export. Allow optional `appId` query param
+        const requestedAppParam = (req.query.appId as string) || '';
+        let APP_IDS: string[] = (process.env.APP_IDS && process.env.APP_IDS.split(',')) || ['app1', 'app2'];
+        if (requestedAppParam) {
+            // support comma-separated list or single app id
+            const requested = requestedAppParam.split(',').map(s => s.trim()).filter(Boolean);
+            if (requested.length) {
+                APP_IDS = requested;
+            }
+        }
 
+        // We'll collect combined arrays as well as create per-app sheets
         let combinedUsers: any[] = [];
         let combinedChats: any[] = [];
         let combinedUsageLogs: any[] = [];
+
+        // Create a workbook early so we can append per-app sheets
+        const workbook = XLSX.utils.book_new();
 
         for (const appId of APP_IDS) {
             try {
@@ -443,118 +454,179 @@ export const exportData = asyncHandler(async (req: Request, res: Response) => {
                     .lean();
                 const usageLogs = await UsageModel.find().lean();
 
-                // Tag records with appId if desired
-                combinedUsers = combinedUsers.concat(users.map(u => ({ ...u, _appId: appId })));
-                combinedChats = combinedChats.concat(chats.map(c => ({ ...c, _appId: appId })));
-                combinedUsageLogs = combinedUsageLogs.concat(usageLogs.map(l => ({ ...l, _appId: appId })));
+                // Build a quick map of userId -> email for linking when population isn't available
+                const emailByUserId: Record<string, string> = {};
+                users.forEach((u: any) => {
+                    if (u._id) emailByUserId[u._id.toString()] = u.email || '';
+                });
+
+                // ---------- Students sheet for this app ----------
+                const studentsSheetApp = users.map((u: any) => {
+                    const userEmail = u.email || '';
+                    const userChats = chats.filter((c: any) => {
+                        // Determine chat's user email
+                        let chatEmail = '';
+                        if (c.userId && typeof c.userId === 'object' && c.userId.email) {
+                            chatEmail = c.userId.email;
+                        } else if (c.userId) {
+                            chatEmail = emailByUserId[(c.userId as any).toString()] || '';
+                        }
+                        return chatEmail && userEmail && chatEmail.toLowerCase() === userEmail.toLowerCase();
+                    });
+
+                    const lastActivity = userChats.length
+                        ? new Date(Math.max(...userChats.map((c: any) => new Date(c.updatedAt).getTime()))).toLocaleString()
+                        : '';
+
+                    return {
+                        AppID: appId,
+                        UserEmail: userEmail,
+                        Batch: u.batch || '',
+                        Course: u.course || '',
+                        Country: u.country || '',
+                        ChatCount: userChats.length,
+                        LastActivity: lastActivity,
+                        CreatedAt: u.createdAt ? new Date(u.createdAt).toLocaleString() : ''
+                    };
+                });
+
+                // ---------- Chats sheet for this app (use email instead of userId) ----------
+                const chatsSheetApp = chats.map((c: any) => {
+                    let userEmail = '';
+                    if (c.userId && typeof c.userId === 'object' && c.userId.email) {
+                        userEmail = c.userId.email || '';
+                    } else if (c.userId) {
+                        userEmail = emailByUserId[(c.userId as any).toString()] || '';
+                    }
+
+                    return {
+                        AppID: appId,
+                        ChatID: c._id?.toString() || '',
+                        UserEmail: userEmail,
+                        MessageCount: c.messages?.length || 0,
+                        Flagged: c.flagged ? 'true' : 'false',
+                        FlagReason: c.flagReason || '',
+                        CreatedAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : '',
+                        UpdatedAt: c.updatedAt ? new Date(c.updatedAt).toLocaleString() : ''
+                    };
+                });
+
+                // ---------- Messages sheet for this app (attach user email) ----------
+                const messagesSheetApp: any[] = [];
+                chats.forEach((c: any) => {
+                    const chatId = c._id?.toString() || '';
+                    let chatEmail = '';
+                    if (c.userId && typeof c.userId === 'object' && c.userId.email) {
+                        chatEmail = c.userId.email || '';
+                    } else if (c.userId) {
+                        chatEmail = emailByUserId[(c.userId as any).toString()] || '';
+                    }
+
+                    if (Array.isArray(c.messages)) {
+                        c.messages.forEach((m: any, idx: number) => {
+                            messagesSheetApp.push({
+                                AppID: appId,
+                                MessageID: m._id?.toString() || `${chatId}-${idx}`,
+                                ChatID: chatId,
+                                UserEmail: chatEmail,
+                                Sender: m.role === 'user' ? 'User' : 'AI',
+                                Content: m.content || '',
+                                Timestamp: m.timestamp ? new Date(m.timestamp).toLocaleString() : ''
+                            });
+                        });
+                    }
+                });
+
+                // ---------- Usage Logs sheet for this app (attach user email when possible) ----------
+                const usageLogsSheetApp = usageLogs.map((log: any) => {
+                    const uid = (log.userId || '')?.toString ? (log.userId || '').toString() : '';
+                    const userEmail = uid ? (emailByUserId[uid] || '') : '';
+                    return {
+                        AppID: appId,
+                        LogID: log._id?.toString() || '',
+                        UserEmail: userEmail,
+                        Package: log.package || '',
+                        TimeUsed: log.timeUsed || 0,
+                        StartTime: log.startTime ? new Date(log.startTime).toLocaleString() : '',
+                        EndTime: log.endTime ? new Date(log.endTime).toLocaleString() : '',
+                        CreatedAt: log.createdAt ? new Date(log.createdAt).toLocaleString() : ''
+                    };
+                });
+
+                // Append per-app sheets to workbook
+                XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(studentsSheetApp), `Students_${appId}`);
+                XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(chatsSheetApp), `Chats_${appId}`);
+                XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(messagesSheetApp), `Messages_${appId}`);
+                XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(usageLogsSheetApp), `Usage_${appId}`);
+
+                // Add to combined arrays for optional global sheets
+                combinedUsers = combinedUsers.concat(users.map((u: any) => ({ ...u, _appId: appId })));
+                combinedChats = combinedChats.concat(chats.map((c: any) => ({ ...c, _appId: appId })));
+                combinedUsageLogs = combinedUsageLogs.concat(usageLogs.map((l: any) => ({ ...l, _appId: appId })));
             } catch (err: any) {
                 console.warn(`⚠️ Skipping app ${appId} during export:`, err?.message || err);
             }
         }
 
-        const students = combinedUsers;
-        const chats = combinedChats;
-        const usageLogs = combinedUsageLogs;
+        // Optionally build combined sheets (All apps) using email-based linking
+        // Build combined students summary by email
+        const combinedStudentsByEmail: Record<string, any> = {};
+        combinedUsers.forEach((u: any) => {
+            const email = (u.email || '').toLowerCase();
+            if (!combinedStudentsByEmail[email]) {
+                combinedStudentsByEmail[email] = { UserEmail: u.email || '', AppIDs: new Set([u._appId]), Batch: u.batch || '', Course: u.course || '', Country: u.country || '', CreatedAt: u.createdAt ? new Date(u.createdAt).toLocaleString() : '' };
+            } else {
+                combinedStudentsByEmail[email].AppIDs.add(u._appId);
+            }
+        });
 
-        // Build Students sheet
-      // ---------- Students ----------
-const studentsSheet = students.map((u) => ({
-    Usermail: u.email || "",
-    Batch: u.batch || "",
-    Course: u.course || "",
-    Country: u.country || "",
-    ChatCount: chats.filter(
-        (c) =>
-            c.userId &&
-            typeof c.userId === "object" &&
-            (c.userId as any)._id.equals(u._id)
-    ).length,
-  LastActivity: (() => {
-    const userChats = chats.filter(
-      (c) =>
-        c.userId &&
-        typeof c.userId === "object" &&
-        (c.userId as any)._id.equals(u._id)
-    );
-    if (!userChats.length) return "";
-    return new Date(
-      Math.max(...userChats.map((c) => new Date(c.updatedAt).getTime()))
-    ).toLocaleString();
-  })(),
-  CreatedAt: u.createdAt ? new Date(u.createdAt).toLocaleString() : "",
-}));
+        // Attach chat counts and last activity to combined students
+        Object.keys(combinedStudentsByEmail).forEach(email => {
+            const student = combinedStudentsByEmail[email];
+            const studentChats = combinedChats.filter((c: any) => {
+                // Determine chat email
+                let chatEmail = '';
+                if (c.userId && typeof c.userId === 'object' && c.userId.email) chatEmail = c.userId.email;
+                else if (c.userId) chatEmail = c.userId.toString();
+                return chatEmail && chatEmail.toLowerCase() === email;
+            });
+            student.ChatCount = studentChats.length;
+            student.LastActivity = studentChats.length ? new Date(Math.max(...studentChats.map((c: any) => new Date(c.updatedAt).getTime()))).toLocaleString() : '';
+            student.AppIDs = Array.from(student.AppIDs).join(',');
+        });
 
+        const combinedStudentsSheet = Object.values(combinedStudentsByEmail).map((s: any) => ({ AppIDs: s.AppIDs, UserEmail: s.UserEmail, Batch: s.Batch, Course: s.Course, Country: s.Country, ChatCount: s.ChatCount || 0, LastActivity: s.LastActivity || '', CreatedAt: s.CreatedAt }));
 
-  
-// ---------- Chats ----------
-const chatsSheet = chats.map((c) => {
-  let userId = "";
+        // Combined chats/messages/usage can be built similarly if requested; for brevity we create a combined chats sheet keyed by email
+        const combinedChatsSheet = combinedChats.map((c: any) => {
+            let userEmail = '';
+            if (c.userId && typeof c.userId === 'object' && c.userId.email) userEmail = c.userId.email || '';
+            else if (c.userId) userEmail = (c.userId || '').toString();
+            return { AppID: c._appId || '', ChatID: c._id?.toString() || '', UserEmail: userEmail, MessageCount: c.messages?.length || 0, Flagged: c.flagged ? 'true' : 'false', FlagReason: c.flagReason || '', CreatedAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : '', UpdatedAt: c.updatedAt ? new Date(c.updatedAt).toLocaleString() : '' };
+        });
 
-  if (c.userId && typeof c.userId === "object" && c.userId !== null) {
-    if ("_id" in c.userId) {
-      userId = (c.userId as any)._id.toString() || "";
-    }
-  }
-
-  return {
-    ChatID: c._id?.toString() || "",
-    UserID: userId,
-    MessageCount: c.messages?.length || 0,
-    Flagged: c.flagged ? "true" : "false",
-    FlagReason: c.flagReason || "",
-    CreatedAt: c.createdAt
-      ? new Date(c.createdAt).toLocaleString()
-      : "",
-    UpdatedAt: c.updatedAt
-      ? new Date(c.updatedAt).toLocaleString()
-      : "",
-  };
-});
-
-        // Build Messages sheet
-        let messagesSheet: any[] = [];
-        chats.forEach((c) => {
+        const combinedMessagesSheet: any[] = [];
+        combinedChats.forEach((c: any) => {
+            const chatId = c._id?.toString() || '';
+            let chatEmail = '';
+            if (c.userId && typeof c.userId === 'object' && c.userId.email) chatEmail = c.userId.email || '';
+            else if (c.userId) chatEmail = (c.userId || '').toString();
             if (Array.isArray(c.messages)) {
                 c.messages.forEach((m: any, idx: number) => {
-                    messagesSheet.push({
-                        MessageID: m._id?.toString() || `${c._id}-${idx}`,
-                        ChatID: c._id?.toString() || '',
-                        Sender: m.role === 'user' ? 'User' : 'AI',
-                        Content: m.content || '',
-                        Timestamp: m.timestamp ? new Date(m.timestamp).toLocaleString() : ''
-                    });
+                    combinedMessagesSheet.push({ AppID: c._appId || '', MessageID: m._id?.toString() || `${chatId}-${idx}`, ChatID: chatId, UserEmail: chatEmail, Sender: m.role === 'user' ? 'User' : 'AI', Content: m.content || '', Timestamp: m.timestamp ? new Date(m.timestamp).toLocaleString() : '' });
                 });
             }
         });
 
-        // Build Usage Logs sheet
-        const usageLogsSheet = usageLogs.map((log) => {
-            return {
-                LogID: log._id?.toString() || "",
-                UserID: log.userId?.toString() || "",
-                Package: log.package || "",
-                TimeUsed: log.timeUsed || 0,
-                StartTime: log.startTime ? new Date(log.startTime).toLocaleString() : "",
-                EndTime: log.endTime ? new Date(log.endTime).toLocaleString() : "",
-                CreatedAt: log.createdAt ? new Date(log.createdAt).toLocaleString() : "",
-            };
-        });
+        const combinedUsageLogsSheet = combinedUsageLogs.map((log: any) => ({ AppID: log._appId || '', LogID: log._id?.toString() || '', UserID: log.userId?.toString() || '', Package: log.package || '', TimeUsed: log.timeUsed || 0, StartTime: log.startTime ? new Date(log.startTime).toLocaleString() : '', EndTime: log.endTime ? new Date(log.endTime).toLocaleString() : '', CreatedAt: log.createdAt ? new Date(log.createdAt).toLocaleString() : '' }));
+
+        // Append combined sheets after per-app sheets
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(combinedStudentsSheet), `All_Students`);
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(combinedChatsSheet), `All_Chats`);
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(combinedMessagesSheet), `All_Messages`);
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(combinedUsageLogsSheet), `All_Usage`);
 
         if (format === 'xlsx') {
-            // Create Excel workbook
-            const workbook = XLSX.utils.book_new();
-            // Add Students sheet
-            const studentsWS = XLSX.utils.json_to_sheet(studentsSheet);
-            XLSX.utils.book_append_sheet(workbook, studentsWS, "Students");
-            // Add Chats sheet
-            const chatsWS = XLSX.utils.json_to_sheet(chatsSheet);
-            XLSX.utils.book_append_sheet(workbook, chatsWS, "Chats");
-            // Add Messages sheet
-            const messagesWS = XLSX.utils.json_to_sheet(messagesSheet);
-            XLSX.utils.book_append_sheet(workbook, messagesWS, "Messages");
-            // Add Usage Logs sheet
-            const usageLogsWS = XLSX.utils.json_to_sheet(usageLogsSheet);
-            XLSX.utils.book_append_sheet(workbook, usageLogsWS, "Usage Logs");
             // Generate buffer
             const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
             // Set headers for file download
@@ -563,14 +635,16 @@ const chatsSheet = chats.map((c) => {
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.send(buffer);
         } else {
-            // Return JSON format
+            // Return JSON format with per-app and combined data
             res.status(200).json({
                 success: true,
                 data: {
-                    students: studentsSheet,
-                    chats: chatsSheet,
-                    messages: messagesSheet,
-                    usageLogs: usageLogsSheet
+                    combined: {
+                        students: combinedStudentsSheet,
+                        chats: combinedChatsSheet,
+                        messages: combinedMessagesSheet,
+                        usageLogs: combinedUsageLogsSheet
+                    }
                 },
                 exportedAt: new Date()
             });

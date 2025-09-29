@@ -19,7 +19,8 @@ export interface AnalyticsResponse {
 }
 
 // API configuration and admin authentication services
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://10.6.192.157:8000/api/v1';
+// Default to the project's backend IP if VITE_API_URL is not provided
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://10.236.213.163:8000/api/v1';
 
 console.log('🔧 API Configuration:');
 console.log('VITE_API_URL from env:', import.meta.env.VITE_API_URL);
@@ -156,6 +157,9 @@ class AdminApiService {
 
   async signup(signupData: AdminSignupData): Promise<AdminAuthResponse> {
     try {
+      console.log('✉️ Signup request to:', `${API_BASE_URL}/admin/signup`);
+      console.log('✉️ Signup payload:', signupData);
+
       const response = await fetch(`${API_BASE_URL}/admin/signup`, {
         method: 'POST',
         headers: {
@@ -164,14 +168,23 @@ class AdminApiService {
         body: JSON.stringify(signupData),
       });
 
-      const data = await response.json();
+      console.log('✉️ Signup response status:', response.status);
+
+      let data: any = null;
+      try {
+        data = await response.json();
+        console.log('📦 Signup response data:', data);
+      } catch (err) {
+        console.error('Failed to parse signup JSON response:', err);
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || 'Signup failed');
+        const msg = data?.message || `Signup failed (status ${response.status})`;
+        throw new Error(msg);
       }
 
       // Store token in localStorage
-      if (data.data?.accessToken) {
+      if (data?.data?.accessToken) {
         localStorage.setItem('adminToken', data.data.accessToken);
         localStorage.setItem('adminUser', JSON.stringify(data.data.admin));
       }
@@ -336,9 +349,12 @@ async getAnalytics(): Promise<AnalyticsResponse> {
     }
   }
 
-  async exportData(type = 'all', format = 'xlsx') {
+  async exportData(type = 'all', format = 'xlsx', appId?: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/export?type=${type}&format=${format}`, {
+      let url = `${API_BASE_URL}/admin/export?type=${type}&format=${format}`;
+      if (appId) url += `&appId=${encodeURIComponent(appId)}`;
+      console.log('📤 Export URL:', url);
+      const response = await fetch(url, {
         method: 'GET',
         headers: this.getAuthHeaders(),
       });
