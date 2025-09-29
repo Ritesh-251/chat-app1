@@ -46,6 +46,8 @@ flutter:
     - assets/male.jpg
     - assets/female.jpg
     - assets/splscreen.png
+    - assets/bg_image.png
+    - assets/bg_light.png
 
 flutter_launcher_icons:
   android: "launcher_icon"
