@@ -7,20 +7,29 @@ import jwt from "jsonwebtoken";
 
 
 
-async function generateAccessTokenandRefreshToken(id: string | Types.ObjectId, User: any) {
+async function generateAccessTokenandRefreshToken(id: string | Types.ObjectId, User: any, appId: string = 'app1') {
     try {
         const user = await User.findById(id);
         if (!user) {
             throw new ApiError(404, "User not found");
         }
-        
-        const accessToken = user.generateAccessToken();
-        const refreshToken = user.generateRefreshToken();
-        
-        
-         user.refreshToken = refreshToken;
-         await user.save({ validateBeforeSave: false });
-        
+
+        // Sign access and refresh tokens including appId so we can validate against the correct DB later
+        const accessSecret = process.env.ACCESS_TOKEN_SECRET as string;
+        const accessExpiry = process.env.ACCESS_TOKEN_EXPIRY as string;
+        const refreshSecret = process.env.REFRESH_TOKEN_SECRET as string;
+        const refreshExpiry = process.env.REFRESH_TOKEN_EXPIRY as string;
+
+        if (!accessSecret || !refreshSecret) {
+            throw new ApiError(500, 'Token secrets not configured');
+        }
+
+        const accessToken = jwt.sign({ _id: user._id, email: user.email, appId }, accessSecret, { expiresIn: accessExpiry as any });
+        const refreshToken = jwt.sign({ _id: user._id, appId }, refreshSecret, { expiresIn: refreshExpiry as any });
+
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+
         return { accessToken, refreshToken };
     } catch (error) {
         throw new ApiError(500, "Something went wrong while generating refresh and access token");
@@ -56,8 +65,9 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
         throw new ApiError(500, "Something went wrong while registering the user");
     }
 
-    // Generate tokens just like in Signin
-    const { accessToken, refreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId, User);
+    // Generate tokens just like in Signin (include appId so tokens are scoped)
+    const appId = (req as any).appId || 'app1';
+    const { accessToken, refreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId, User, appId);
     const options = {
         httpOnly: true,
         secure: false,
@@ -95,7 +105,8 @@ export const Signin = asyncHandler(async(req:Request, res:Response)=>{
     if(PasswordVerification == false){
         throw new ApiError(403,"Please enter the correct password");
     }
-    const {accessToken,refreshToken} = await generateAccessTokenandRefreshToken(loggedinUser._id as Types.ObjectId, User);
+    const appId = (req as any).appId || 'app1';
+    const {accessToken,refreshToken} = await generateAccessTokenandRefreshToken(loggedinUser._id as Types.ObjectId, User, appId);
     const options = 
     {
         httpOnly:true,
@@ -113,27 +124,34 @@ export const Signin = asyncHandler(async(req:Request, res:Response)=>{
 })
 export const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
     // Use app-specific User model
-    const User = (req as any).User;
-    
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorized request - no refresh token");
     }
 
-    try {
-        const decodedToken = jwt.verify(
-            incomingRefreshToken,
-            process.env.REFRESH_TOKEN_SECRET as string
-        ) as any;
+    if (!incomingRefreshToken) {
+        throw new ApiError(401, "Unauthorized request - no refresh token");
+    }
 
-        const user = await User.findById(decodedToken?._id);
+    try {
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET as string) as any;
+
+        // Prefer appId from the token when deciding which DB to use
+        const tokenAppId = decodedToken?.appId || (req as any).appId || 'app1';
+
+        // Import model registry to get the correct User model for the token's app
+    const { getUserModel } = await import('../db/model-registry.js');
+        const UserModel = getUserModel(tokenAppId as string);
+
+        const user = await UserModel.findById(decodedToken?._id);
 
         if (!user) {
             throw new ApiError(401, "Invalid refresh token - user not found");
         }
 
-        if (incomingRefreshToken !== user?.refreshToken) {
+        const maybeUser: any = user;
+        if (incomingRefreshToken !== maybeUser?.refreshToken) {
             throw new ApiError(401, "Refresh token is expired or used");
         }
 
@@ -142,7 +160,7 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
             secure: false,
         };
 
-        const { accessToken, refreshToken: newRefreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId, User);
+    const { accessToken, refreshToken: newRefreshToken } = await generateAccessTokenandRefreshToken(user._id as Types.ObjectId, UserModel, tokenAppId as string);
 
         return res
             .status(200)

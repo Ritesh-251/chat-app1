@@ -34,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   // Stream subscriptions for proper disposal
   StreamSubscription? _streamingMessageSubscription;
   StreamSubscription? _messagesSubscription;
+  StreamSubscription<String?>? _currentChatSubscription;
 
   @override
   void initState() {
@@ -73,6 +74,15 @@ class _ChatScreenState extends State<ChatScreen> {
         // Auto-scroll when new messages are added
         _scrollToBottom();
       }
+    });
+
+    // Listen for current chat changes (id/title updates)
+    _currentChatSubscription?.cancel();
+    _currentChatSubscription = _chatService.currentChatStream.listen((chatId) {
+      if (!mounted) return;
+      setState(() {
+        // Trigger rebuild so AppBar title picks up _chatService.currentChatTitle
+      });
     });
   }
 
@@ -605,74 +615,79 @@ class _ChatScreenState extends State<ChatScreen> {
       onNewChat: _startNewChat,
       onChatDeleted: _onChatDeleted,
     ),
-   body: Container(
-  /*decoration: BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topCenter,
-      colors: [
-        Colors.green.shade700,
-        Colors.green.shade300,
-        Colors.limeAccent.shade400,
-      ],
+    body: Stack(
+  children: [
+    // Gradient background
+    Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          colors: [
+            Colors.green.shade700,
+            Colors.green.shade300,
+            Colors.limeAccent.shade400,
+          ],
+        ),
+      ),
     ),
-  ),*/
-   decoration: BoxDecoration(
-    image: DecorationImage(
-      image: AssetImage("assets/bg_light.png"), // 👈 add in assets
-      //fit: BoxFit.cover,
-      repeat: ImageRepeat.repeat,
+
+    // Messages list
+    Positioned.fill(
+      top: 100, // offset for transparent AppBar
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 80, // input bar + safe area
+          top: 12,
+        ),
+        itemCount: messages.length + (_chatService.isStreaming ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index < messages.length) {
+            final msg = messages[index];
+            final canDelete = _messageCanDelete[msg.id] ?? false;
+            return ChatBubble(
+              text: msg.text,
+              fromUser: msg.isFromUser,
+              messageId: msg.id,
+              canDelete: canDelete,
+              onDelete: canDelete ? () => _deleteMessage(msg.id) : null,
+            );
+          } else if (_chatService.isStreaming) {
+            return ChatBubble(
+              text: _currentStreamingText,
+              fromUser: false,
+              messageId: 'streaming',
+              canDelete: false,
+              isStreaming: _currentStreamingText.isNotEmpty,
+              isTyping: _currentStreamingText.isEmpty,
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
     ),
-  ),
-  child: Column(
-    children: [
-      // Messages list
-      Expanded(
-        child: ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12).copyWith(bottom: 0),
-          itemCount: messages.length + (_chatService.isStreaming ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index < messages.length) {
-              final msg = messages[index];
-              final canDelete = _messageCanDelete[msg.id] ?? false;
-              return ChatBubble(
-                text: msg.text,
-                fromUser: msg.isFromUser,
-                messageId: msg.id,
-                canDelete: canDelete,
-                onDelete: canDelete ? () => _deleteMessage(msg.id) : null,
-              );
-            } else if (_chatService.isStreaming) {
-              return ChatBubble(
-                text: _currentStreamingText,
-                fromUser: false,
-                messageId: 'streaming',
-                canDelete: false,
-                isStreaming: _currentStreamingText.isNotEmpty,
-                isTyping: _currentStreamingText.isEmpty,
-              );
-            }
-            return const SizedBox.shrink();
-          },
+
+    // AI thinking indicator (above input bar)
+    if (_isLoading)
+      Positioned(
+        left: 12,
+        right: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 70, // above input
+        child: const AIThinkingIndicator(
+          message: 'AI is thinking...',
+          dotColor: Color(0xFF3E6C42),
         ),
       ),
 
-      // AI typing indicator (sits right above input)
-      if (_isLoading)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 4),
-          child: AIThinkingIndicator(
-            message: 'AI is thinking...',
-            dotColor: Color(0xFF3E6C42),
-          ),
-        ),
-
-      // Input bar
-      _buildChatInputBar(),
-    ],
-  ),
+    // Input bar pinned
+    Align(
+      alignment: Alignment.bottomCenter,
+      child: _buildChatInputBar(),
+    ),
+  ],
 )
-
 
   );
 }
@@ -687,6 +702,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Cancel stream subscriptions to prevent memory leaks
     _streamingMessageSubscription?.cancel();
     _messagesSubscription?.cancel();
+  _currentChatSubscription?.cancel();
     
     // Don't disconnect WebSocket here as it's shared across screens
     // It will be properly managed by the service lifecycle

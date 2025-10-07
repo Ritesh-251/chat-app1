@@ -212,6 +212,12 @@ class ChatService {
     if (data['title'] != null && data['title'] is String && data['title'].isNotEmpty) {
       _currentChatTitle = data['title'];
       print('📝 Updated chat title: $_currentChatTitle');
+      // Notify listeners that current chat metadata changed (title updated)
+      try {
+        _currentChatController.add(_currentChatId);
+      } catch (e) {
+        print('Error emitting currentChat after title update: $e');
+      }
     }
     
     // Reset streaming state

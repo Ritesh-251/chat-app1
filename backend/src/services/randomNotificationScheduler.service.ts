@@ -1,6 +1,10 @@
 import cron from 'node-cron';
 import admin from "../firebase.js";
 import User from "../models/user.model.js";
+import { getDbConnection } from '../db/index.js';
+
+// Read app ids from env or default to known apps
+const APP_IDS: string[] = (process.env.APP_IDS && process.env.APP_IDS.split(',')) || ['app1', 'app2'];
 
 class RandomNotificationScheduler {
     private scheduledJobs: Map<string, any> = new Map();
@@ -113,31 +117,36 @@ class RandomNotificationScheduler {
             const messages = this.notificationMessages[messageCategory];
             const randomMessage = messages[Math.floor(Math.random() * messages.length)];
 
-            // Get all users (we'll improve this to get FCM tokens from database later)
-            const users = await User.find({ isActive: { $ne: false } }).select('_id email');
-            
-            console.log(`📢 Sending random notification to ${users.length} users: "${randomMessage}"`);
+            // Iterate all configured app DBs and prepare notifications per-app
+            for (const appId of APP_IDS) {
+                try {
+                    const conn = getDbConnection(appId);
 
-            // For now, we'll use the existing endpoint logic
-            // TODO: Get actual FCM tokens from user tokens collection
-            const notificationPayload = {
-                notification: {
-                    title: this.getNotificationTitle(hour),
-                    body: randomMessage,
-                },
-                data: {
-                    type: 'study_reminder',
-                    hour: hour.toString(),
-                    timestamp: new Date().toISOString()
+                    // If you have a token collection per-app, fetch tokens here. For now we'll fetch users as a proxy.
+                    const UserModel = conn.model('User') || User; // fallback to global model
+                    const users = await UserModel.find({ isActive: { $ne: false } }).select('_id email');
+
+                    console.log(`📢 [${appId}] Sending random notification to ${users.length} users: "${randomMessage}"`);
+
+                    const notificationPayload = {
+                        notification: {
+                            title: this.getNotificationTitle(hour),
+                            body: randomMessage,
+                        },
+                        data: {
+                            type: 'study_reminder',
+                            hour: hour.toString(),
+                            timestamp: new Date().toISOString(),
+                            appId
+                        }
+                    };
+
+                    // TODO: Query per-app token storage and send actual notifications
+                    console.log(`📱 [${appId}] Notification ready to send:`, notificationPayload);
+                } catch (err) {
+                    console.error(`❌ Error preparing notification for ${appId}:`, err);
                 }
-            };
-
-            // This would send to stored FCM tokens
-            // For now, just log the notification
-            console.log('📱 Notification ready to send:', notificationPayload);
-
-            // TODO: Send to actual FCM tokens when we have them stored
-            // await this.sendToStoredFCMTokens(notificationPayload);
+            }
 
         } catch (error) {
             console.error('❌ Error sending random notification:', error);

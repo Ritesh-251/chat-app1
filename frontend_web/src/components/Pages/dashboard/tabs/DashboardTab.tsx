@@ -24,6 +24,7 @@ export function DashboardTab() {
   const [recentChats, setRecentChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Export will return per-app sheets (Students_app1, Chats_app1, etc.)
 
   useEffect(() => {
     fetchDashboardData();
@@ -233,6 +234,7 @@ export function DashboardTab() {
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors shadow-sm"
                     onClick={async () => {
                       try {
+                        // Request export (backend will include separate sheets per app)
                         await adminApiService.exportData('all', 'xlsx');
                       } catch (err) {
                         const rows = chartData.map((row: any) => ({

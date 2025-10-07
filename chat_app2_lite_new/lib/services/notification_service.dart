@@ -21,13 +21,20 @@ class NotificationService {
     }
   }
 
+  /// Send only the FCM token. Backend will use X-App-ID to select the DB.
   static Future<void> sendTokenToBackend(String token) async {
+    final url = Uri.parse('${ApiService.baseUrl}/api/v1/notification');
+
+    final headers = Map<String, String>.from(ApiService.instance.headers);
+    headers['Content-Type'] = 'application/json';
+    headers['X-App-ID'] = 'app2';
+
     final response = await http.post(
-      Uri.parse('${ApiService.baseUrl}/api/v1/notification'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({"token": token}),
+      url,
+      headers: headers,
+      body: jsonEncode({'token': token}),
     );
 
-    print("📡 Backend Response: ${response.body}");
+    print('📡 Backend Response: ${response.statusCode} ${response.body}');
   }
 }
