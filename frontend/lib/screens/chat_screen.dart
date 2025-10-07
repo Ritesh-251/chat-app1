@@ -87,7 +87,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Auto-scroll to bottom of chat
-  void _scrollToBottom() {
+  /*void _scrollToBottom() {
     if (_scrollController.hasClients) {
       // Add a small delay to ensure the UI has updated
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -100,7 +100,36 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
     }
-  }
+  }*/
+
+  void _scrollToBottom({Duration duration = const Duration(milliseconds: 200)}) {
+  // Always schedule a post-frame callback — don't gate by hasClients here.
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    if (!_scrollController.hasClients) return; // check only inside the callback
+
+    try {
+      final pos = _scrollController.position;
+      final target = pos.maxScrollExtent;
+
+      // If already at bottom, skip animation
+      if (pos.pixels == target) return;
+
+      // Animate; if animation fails (e.g. disposed mid-animation) fall back to jump
+      await _scrollController.animateTo(
+        target,
+        duration: duration,
+        curve: Curves.easeOut,
+      );
+    } catch (e) {
+      // Animation may throw if controller got disposed — fallback to jumpTo safe
+      if (_scrollController.hasClients) {
+        try {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        } catch (_) {}
+      }
+    }
+  });
+}
 
   Future<void> _sendUsageLogsIfConsented() async {
     try {
@@ -200,6 +229,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       // Check deletion eligibility for loaded messages
       _checkMessageDeletionEligibility();
+        _scrollToBottom();
     }
   }
 
@@ -283,6 +313,7 @@ class _ChatScreenState extends State<ChatScreen> {
           });
           // Check deletion eligibility for loaded chat messages
           _checkMessageDeletionEligibility();
+          _scrollToBottom();
           
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -358,6 +389,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   fillColor: Colors.white,  // 👈 back to clean white
                   contentPadding: const EdgeInsets.symmetric(
                       vertical: 12, horizontal: 16),
+        
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(25),
                     borderSide: BorderSide(color: Colors.grey.shade300),
@@ -388,6 +420,13 @@ class _ChatScreenState extends State<ChatScreen> {
             decoration: BoxDecoration(
               color: Colors.green.shade700,
               shape: BoxShape.circle,
+               boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3), // stronger shadow than input
+                ),
+              ],
             ),
             child: IconButton(
               icon: _isLoading
@@ -537,14 +576,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }*/
 
   @override
-Widget build(BuildContext context) {
+  Widget build(BuildContext context) {
   final messages = _chatService.messages;
 
   return Scaffold(
     resizeToAvoidBottomInset: true,
-    extendBodyBehindAppBar: true,
+    extendBodyBehindAppBar: false,
     appBar: AppBar(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.green.shade700,
       elevation: 0,
       title: Text(
         _chatService.currentChatTitle ?? 'AI Chat Assistant',
