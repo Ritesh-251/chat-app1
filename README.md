@@ -239,4 +239,4 @@ For support open an issue in the GitHub repository.
 
 ---
 
-**Built with ❤️ by [Ritesh-251](https://github.com/Ritesh-251)**
+**Built with ❤️ by [Ritesh-251](https://github.com/Ritesh-251) anb [goyal02aditi ](https://github.com/goyal02aditi)**
