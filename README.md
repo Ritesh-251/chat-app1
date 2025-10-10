@@ -1,157 +1,242 @@
-# Ollama Chatbot Fullstack
+# 🤖 AI Chat Application
 
-A complete chatbot application built with **Flutter** frontend and **Python FastAPI** backend, powered by **Ollama** for AI conversations.
+A full-stack AI-powered chat application built with **Flutter** (frontend) and **Node.js/TypeScript** (backend), featuring real-time messaging with AI assistants, WebSocket connections, and cross-platform support.
 
-## 🏗️ Project Structure
+## 🌟 Overview
 
+This application provides an interactive chat experience with AI-powered assistants. Users can engage in conversations with customizable AI chatbots (Jojo and Gini) that serve different purposes including casual chat, learning assistance, and more.
+
+## 🚀 Key Features
+
+### 🎯 Core Features
+- **AI-Powered Chat**: Real-time conversations with AI assistants using streaming responses
+- **Multiple AI Personalities**: Choose between Jojo (Male) and Gini (Female) chatbot personalities
+- **Cross-Platform**: Web, iOS, and Android support via Flutter
+- **Real-time Messaging**: WebSocket-based instant messaging with typing indicators
+- **User Authentication**: Secure registration and login system
+- **Chat History**: Persistent message storage and conversation management
+- **Profile Customization**: Personalized chatbot selection and usage preferences
+
+### 🛠 Technical Features
+- **Streaming AI Responses**: Real-time AI response streaming via WebSocket
+- **Message Management**: Archive, restore, and delete chat conversations
+- **Connection Status**: Real-time connection monitoring
+- **Usage Analytics**: App usage tracking and consent management
+- **Push Notifications**: Background message notifications
+- **Responsive Design**: Material Design 3 UI components
+
+## 🏗️ Architecture
+
+### Project Structure
 ```
-ollama-chatbot-fullstack/
-├── README.md                 # This file
-├── .gitignore               # Git ignore rules
-├── frontend/                # Flutter mobile/web app
+chat-app1/
+├── frontend/                    # Flutter application
 │   ├── lib/
-│   ├── pubspec.yaml
-│   └── ...
-└── backend/                 # Python FastAPI server
-    ├── api_server.py
-    ├── requirements.txt
-    └── ...
+│   │   ├── main.dart           # App entry point
+│   │   ├── screens/            # UI screens
+│   │   │   ├── chat_screen.dart
+│   │   │   ├── login_screen.dart
+│   │   │   ├── register_screen.dart
+│   │   │   └── chatbot_profile.dart
+│   │   ├── services/           # Business logic
+│   │   │   ├── api_service.dart
+│   │   │   ├── auth_service.dart
+│   │   │   ├── chat_service.dart
+│   │   │   └── websocket_service.dart
+│   │   └── widgets/            # Reusable components
+│   └── pubspec.yaml
+├── backend/                     # Node.js/TypeScript server
+│   ├── src/
+│   │   ├── app.ts              # Express app setup
+│   │   ├── controllers/        # Route controllers
+│   │   ├── models/             # Database models
+│   │   ├── routes/             # API routes
+│   │   └── services/           # Business services
+│   └── package.json
+└── chat_app2_lite_new/         # Alternative lite version
 ```
 
-## 🚀 Quick Start
+### Technology Stack
 
-### Prerequisites
+#### Frontend (Flutter)
+- **Framework**: Flutter SDK
+- **Language**: Dart
+- **UI**: Material Design 3
+- **State Management**: Service-based architecture
+- **Networking**: HTTP client with WebSocket support
+- **Platforms**: Web, iOS, Android
 
-- **Flutter SDK** (latest stable)
-- **Python 3.8+**
-- **Ollama** installed and running
+#### Backend (Node.js)
+- **Runtime**: Node.js
+- **Language**: TypeScript
+- **Framework**: Express.js
+- **Database**: MongoDB with Mongoose
+- **Real-time**: Socket.IO for WebSocket connections
+- **Authentication**: JWT tokens
+- **AI Integration**: Custom AI service with streaming
+
+## 📋 Prerequisites
+
+- **Flutter SDK** (latest stable version)
+- **Node.js** (v16 or higher)
+- **MongoDB** (local or cloud instance)
 - **Git**
 
-### 1. Clone the Repository
+## 🚀 Quick Setup
 
+### 1. Clone Repository
 ```bash
-git clone <your-repo-url>
-cd ollama-chatbot-fullstack
+git clone https://github.com/Ritesh-251/chat-app1.git
+cd chat-app1
 ```
 
 ### 2. Backend Setup
-
 ```bash
 cd backend
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
 # Install dependencies
-pip install -r requirements.txt
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your MongoDB connection string and other configs
 
 # Start the server
-python api_server.py
+npm run dev
 ```
 
 The backend will be available at `http://localhost:8000`
 
 ### 3. Frontend Setup
-
 ```bash
 cd frontend
 
 # Install Flutter dependencies
 flutter pub get
 
-# Update API URL in lib/services/api_service.dart
-# Change 'YOUR_BACKEND_URL_HERE' to 'http://localhost:8000'
+# Update API endpoint in lib/services/api_service.dart
+# Change baseUrl to 'http://localhost:8000'
 
 # Run the app
 flutter run -d chrome  # For web
 # or
-flutter run            # For mobile (with emulator/device connected)
+flutter run            # For mobile (requires emulator/device)
 ```
 
 ## 🔧 Configuration
 
-### Backend Configuration
+### Environment Variables (Backend)
+Create a `.env` file in the backend directory:
+```env
+MONGODB_URI=mongodb://localhost:27017/chatapp
+ACCESS_TOKEN_SECRET=your_jwt_secret_here
+PORT=8000
+NODE_ENV=development
+```
 
-1. **Ollama Model**: Update the model in `backend/api_server.py`:
-   ```python
-   runnable = build_chain(os.getenv("OLLAMA_MODEL", "llama3.1:8b"))
-   ```
+### API Configuration (Frontend)
+Update `lib/services/api_service.dart`:
+```dart
+static const String baseUrl = 'http://localhost:8000';
+```
 
-2. **Environment Variables**: Create `.env` file in backend/ if needed:
-   ```
-   OLLAMA_MODEL=llama3.1:8b
-   ```
+## 📚 API Documentation
 
-### Frontend Configuration
+### Authentication Endpoints
+- `POST /api/v1/user/register` - User registration
+- `POST /api/v1/user/login` - User login
 
-1. **API URL**: Update `lib/services/api_service.dart`:
-   ```dart
-   static const String baseUrl = 'http://localhost:8000';
-   ```
+### Chat Endpoints
+- `POST /api/v1/chat/start-streaming` - Start new chat with streaming
+- `POST /api/v1/chat/send-streaming` - Send message with streaming response
+- `GET /api/v1/chat/user-chats` - Get user's chat history
+- `POST /api/v1/chat/:chatId/archive` - Archive a chat
+- `POST /api/v1/chat/:chatId/restore` - Restore archived chat
 
-2. **Build for different platforms**:
-   ```bash
-   flutter build web       # Web
-   flutter build apk       # Android
-   flutter build ios       # iOS
-   ```
+### WebSocket Events
+- `ai_response_chunk` - Streaming AI response data
+- `ai_response_complete` - AI response completion
+- `user_typing_start/stop` - Typing indicators
 
-## 📱 Features
+## 🎨 Features in Detail
 
-- **User Authentication** (registration/login)
-- **Real-time Chat** with Ollama AI models
-- **Cross-platform** (Web, iOS, Android)
-- **Clean Architecture** with proper separation of concerns
-- **Error Handling** and connection status indicators
-- **Modern UI** with Material Design
+### AI Chat Personalities
+- **Jojo (Male)**: Casual, friendly conversation style
+- **Gini (Female)**: Professional, helpful assistant style
 
-## 🛠️ Development
+### Usage Purposes
+- Casual conversation
+- Learning and education
+- Problem-solving assistance
+- Creative writing help
 
-### Backend Development
+### Message Management
+- Real-time message streaming
+- Message history persistence
+- Chat archiving and restoration
+- Message deletion with confirmation
 
-- FastAPI with automatic docs at `http://localhost:8000/docs`
-- LangChain integration for AI pipeline
-- Simple in-memory authentication (replace with database in production)
-- CORS enabled for frontend development
+## 🔒 Security Features
 
-### Frontend Development
+- JWT-based authentication
+- Input validation and sanitization
+- CORS configuration
+- Rate limiting (recommended for production)
+- Secure WebSocket connections
 
-- Flutter with Material Design 3
-- Service-based architecture
-- HTTP client for API communication
-- Responsive design for multiple screen sizes
+## 📱 Platform Support
 
-## 📚 API Endpoints
+### Mobile Apps
+- **Android**: APK build support
+- **iOS**: IPA build support (requires Xcode)
 
-- `POST /auth/register` - User registration
-- `POST /auth/login` - User login
-- `POST /chat` - Send message to AI
-- `GET /docs` - API documentation
+### Web Application
+- Progressive Web App (PWA) capabilities
+- Responsive design for all screen sizes
+- Modern browser compatibility
 
-## 🔒 Security Notes
+## 🚀 Deployment
 
-- Replace in-memory user storage with proper database
-- Implement proper JWT token validation
-- Use HTTPS in production
-- Validate and sanitize all inputs
+### Backend Deployment
+1. Set up MongoDB Atlas or local MongoDB
+2. Configure environment variables
+3. Deploy to services like Heroku, DigitalOcean, or AWS
+
+### Frontend Deployment
+```bash
+# Web deployment
+flutter build web
+
+# Android APK
+flutter build apk
+
+# iOS build (macOS required)
+flutter build ios
+```
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-[Add your license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- **Ollama** for local AI model hosting
-- **LangChain** for AI pipeline framework
-- **Flutter** for cross-platform UI
-- **FastAPI** for backend framework
-# chat-app1
+- Flutter team for the amazing cross-platform framework
+- MongoDB for the robust database solution
+- Socket.IO for real-time communication capabilities
+- Material Design for the beautiful UI components
+
+## 📞 Support
+
+For support open an issue in the GitHub repository.
+
+---
+
+**Built with ❤️ by [Ritesh-251](https://github.com/Ritesh-251)**
